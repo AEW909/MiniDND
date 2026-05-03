@@ -12,6 +12,8 @@
   --gold-light: #fcd34d;
   --red: #ef4444;
   --green: #22c55e;
+  --danger: #ef4444;
+  --success: #22c55e;
 }
 
 @theme inline {

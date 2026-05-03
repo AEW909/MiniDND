@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Plus, ArrowLeft, Swords, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
-import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, getAvatarEmoji, abilityModifier } from '@/lib/constants'
+import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, getAvatarEmoji, abilityModifier } from '@/lib/constants'
 import { getSpellSlots, isCasterClass } from '@/lib/spell-slots'
 import Modal from '@/components/Modal'
 
@@ -17,7 +17,7 @@ const STAT_KEYS = ['str_score', 'dex_score', 'con_score', 'int_score', 'wis_scor
 const STAT_LABELS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
 type NewChar = {
-  name: string; avatar_key: string; class: string; subclass: string
+  name: string; avatar_key: string; class: string; subclass: string; species: string
   level: string; speed: string; max_hp: string
   str_score: string; dex_score: string; con_score: string
   int_score: string; wis_score: string; cha_score: string
@@ -25,7 +25,7 @@ type NewChar = {
 }
 
 const defaultChar = (): NewChar => ({
-  name: '', avatar_key: 'warrior', class: 'Fighter', subclass: '',
+  name: '', avatar_key: 'warrior', class: 'Fighter', subclass: '', species: '',
   level: '1', speed: '30', max_hp: '10',
   str_score: '10', dex_score: '10', con_score: '10',
   int_score: '10', wis_score: '10', cha_score: '10',
@@ -95,6 +95,7 @@ export default function PartyPage() {
       int_score: parseInt(newChar.int_score) || 10,
       wis_score: parseInt(newChar.wis_score) || 10,
       cha_score: parseInt(newChar.cha_score) || 10,
+      species: newChar.species || null,
       use_spell_slots: newChar.use_spell_slots,
     }
 
@@ -202,12 +203,23 @@ export default function PartyPage() {
         <Modal title="New Character" onClose={() => setShowCreate(false)} maxWidth="max-w-lg">
           {step === 'info' ? (
             <div className="flex flex-col gap-4">
-              <Field label="Character name">
-                <input autoFocus type="text" placeholder="Aria Swiftfoot…" value={newChar.name}
-                  onChange={e => setField('name', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl outline-none"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Character name">
+                  <input autoFocus type="text" placeholder="Aria Swiftfoot…" value={newChar.name}
+                    onChange={e => setField('name', e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl outline-none"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                </Field>
+                <Field label="Species">
+                  <input type="text" list="species-list" placeholder="Human, Elf…" value={newChar.species}
+                    onChange={e => setField('species', e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl outline-none"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                  <datalist id="species-list">
+                    {SPECIES.map(s => <option key={s} value={s} />)}
+                  </datalist>
+                </Field>
+              </div>
 
               <Field label="Avatar">
                 <div className="grid grid-cols-8 gap-2 mt-1">

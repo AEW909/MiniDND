@@ -1,3 +1,10 @@
+export const SPECIES = [
+  'Human', 'Elf', 'Dwarf', 'Halfling', 'Gnome',
+  'Half-Elf', 'Half-Orc', 'Tiefling', 'Dragonborn',
+  'Aasimar', 'Firbolg', 'Goliath', 'Kenku', 'Lizardfolk',
+  'Tabaxi', 'Triton', 'Warforged', 'Yuan-ti Pureblood',
+]
+
 export const SKILLS = [
   { name: 'Athletics', ability: 'STR' },
   { name: 'Acrobatics', ability: 'DEX' },

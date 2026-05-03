@@ -23,6 +23,7 @@ export interface Character {
   int_score: number
   wis_score: number
   cha_score: number
+  species: string | null
   use_spell_slots: boolean
   sort_order: number
   created_at: string

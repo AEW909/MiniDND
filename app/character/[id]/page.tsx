@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp, GripVertical, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   DndContext, closestCenter, DragEndEvent,
@@ -16,7 +16,7 @@ import {
   CharacterSpellSlot, CharacterInventory, CharacterOther,
 } from '@/lib/types'
 import {
-  CLASSES, AVATARS, DAMAGE_TYPES, ABILITY_LABELS,
+  CLASSES, AVATARS, DAMAGE_TYPES, ABILITY_LABELS, SPECIES,
   getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { getSpellSlots, isCasterClass, slotLevelLabel } from '@/lib/spell-slots'
@@ -112,6 +112,12 @@ export default function CharacterPage() {
     const m = Math.max(1, newMax)
     await supabase.from('characters').update({ max_hp: m, current_hp: Math.min(char.current_hp, m) }).eq('id', id)
     setChar(prev => prev ? { ...prev, max_hp: m, current_hp: Math.min(prev.current_hp, m) } : prev)
+  }
+
+  async function updateChar(updates: { level?: number; max_hp?: number; speed?: number; species?: string | null }) {
+    if (!char) return
+    await supabase.from('characters').update(updates).eq('id', id)
+    setChar(prev => prev ? { ...prev, ...updates } : prev)
   }
 
   async function toggleSkill(skill: CharacterSkill) {
@@ -253,9 +259,14 @@ export default function CharacterPage() {
         <div className="text-4xl">{getAvatarEmoji(char.avatar_key)}</div>
 
         <div className="flex-1 min-w-0">
-          <h1 className="font-display font-bold text-lg leading-tight truncate">{char.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display font-bold text-lg leading-tight truncate">{char.name}</h1>
+            <button onClick={() => setShowEditChar(true)} className="p-1 rounded-lg shrink-0" style={{ color: 'var(--text-muted)' }}>
+              <Pencil size={14} />
+            </button>
+          </div>
           <p className="text-xs" style={{ color: 'var(--gold)' }}>
-            {char.class}{char.subclass ? ` · ${char.subclass}` : ''} · Lv {char.level}
+            {char.species ? `${char.species} · ` : ''}{char.class}{char.subclass ? ` · ${char.subclass}` : ''} · Lv {char.level}
           </p>
         </div>
 
@@ -403,6 +414,13 @@ export default function CharacterPage() {
       {editingOther && (
         <AddOtherModal title="Edit Special" initial={editingOther}
           onClose={() => setEditingOther(null)} onSave={saveEditOther} />
+      )}
+
+      {showEditChar && (
+        <EditCharModal char={char} onClose={() => setShowEditChar(false)} onSave={async (updates) => {
+          await updateChar(updates)
+          setShowEditChar(false)
+        }} />
       )}
     </div>
   )
@@ -1074,5 +1092,81 @@ function DamageTypePicker({ value, onChange }: { value: string; onChange: (v: st
         </button>
       ))}
     </div>
+  )
+}
+
+// ─── Edit Character Modal ─────────────────────────────────────────────────────
+
+function EditCharModal({
+  char,
+  onClose,
+  onSave,
+}: {
+  char: Character
+  onClose: () => void
+  onSave: (updates: { level?: number; max_hp?: number; speed?: number; species?: string | null }) => Promise<void>
+}) {
+  const [species, setSpecies] = useState(char.species ?? '')
+  const [level, setLevel] = useState(String(char.level))
+  const [maxHp, setMaxHp] = useState(String(char.max_hp))
+  const [speed, setSpeed] = useState(String(char.speed))
+  const [saving, setSaving] = useState(false)
+
+  async function save() {
+    setSaving(true)
+    await onSave({
+      species: species.trim() || null,
+      level: Math.max(1, Math.min(20, parseInt(level) || 1)),
+      max_hp: Math.max(1, parseInt(maxHp) || 1),
+      speed: Math.max(0, parseInt(speed) || 30),
+    })
+    setSaving(false)
+  }
+
+  const inputStyle = { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }
+
+  return (
+    <Modal title="Edit Character" onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Species</label>
+          <input type="text" list="ec-species-list" placeholder="Human, Elf…" value={species}
+            onChange={e => setSpecies(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl outline-none"
+            style={inputStyle} />
+          <datalist id="ec-species-list">
+            {SPECIES.map(s => <option key={s} value={s} />)}
+          </datalist>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Level</label>
+            <input type="number" min="1" max="20" value={level}
+              onChange={e => setLevel(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none text-center"
+              style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Max HP</label>
+            <input type="number" min="1" value={maxHp}
+              onChange={e => setMaxHp(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none text-center"
+              style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Speed (ft)</label>
+            <input type="number" min="0" step="5" value={speed}
+              onChange={e => setSpeed(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none text-center"
+              style={inputStyle} />
+          </div>
+        </div>
+        <button onClick={save} disabled={saving}
+          className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+          style={{ background: 'var(--gold)', color: '#1c1917' }}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
   )
 }
