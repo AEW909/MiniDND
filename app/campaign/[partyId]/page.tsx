@@ -19,7 +19,7 @@ interface CharData {
   slots: CharacterSpellSlot[]
   inventory: CharacterInventory[]
   specials: CharacterOther[]
-  expanded: Set<Section>
+  expanded: Section | null
   restOpen: boolean
 }
 
@@ -82,7 +82,7 @@ export default function CampaignPage() {
       slots: (slots ?? []).filter(s => s.character_id === char.id),
       inventory: (inv ?? []).filter(i => i.character_id === char.id),
       specials: (specials ?? []).filter(s => s.character_id === char.id),
-      expanded: new Set(),
+      expanded: null,
       restOpen: false,
     })))
     setLoading(false)
@@ -273,9 +273,7 @@ export default function CampaignPage() {
   function toggleSection(charId: string, section: Section) {
     setCharData(prev => prev.map(cd => {
       if (cd.char.id !== charId) return cd
-      const exp = new Set(cd.expanded)
-      exp.has(section) ? exp.delete(section) : exp.add(section)
-      return { ...cd, expanded: exp }
+      return { ...cd, expanded: cd.expanded === section ? null : section }
     }))
   }
 
@@ -417,7 +415,7 @@ export default function CampaignPage() {
                 {/* Expandable sections */}
                 <div className="flex-1 flex flex-col">
                   {/* Skills */}
-                  <Section label="Skills 🎯" isOpen={expanded.has('skills')} onToggle={() => toggleSection(char.id, 'skills')}>
+                  <Section label="Skills 🎯" isOpen={expanded === 'skills'} onToggle={() => toggleSection(char.id, 'skills')}>
                     {skills.map(skill => {
                       const base = abilityModifier(scores[skill.ability] ?? 10)
                       const mult = skill.is_expert ? 2 : skill.is_proficient ? 1 : 0
@@ -435,7 +433,7 @@ export default function CampaignPage() {
                   </Section>
 
                   {/* Attacks */}
-                  <Section label="Attacks ⚔️" isOpen={expanded.has('attacks')} onToggle={() => toggleSection(char.id, 'attacks')}>
+                  <Section label="Attacks ⚔️" isOpen={expanded === 'attacks'} onToggle={() => toggleSection(char.id, 'attacks')}>
                     {attacks.length === 0
                       ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No attacks</p>
                       : attacks.map(atk => (
@@ -460,7 +458,7 @@ export default function CampaignPage() {
                   </Section>
 
                   {/* Spell slots */}
-                  <Section label="Spells ✨" isOpen={expanded.has('spells')} onToggle={() => toggleSection(char.id, 'spells')}>
+                  <Section label="Spells ✨" isOpen={expanded === 'spells'} onToggle={() => toggleSection(char.id, 'spells')}>
                     {slots.length === 0 && spells.length === 0
                       ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No spells</p>
                       : <>
@@ -515,7 +513,7 @@ export default function CampaignPage() {
                   </Section>
 
                   {/* Specials */}
-                  <Section label="Specials ⚡" isOpen={expanded.has('specials')} onToggle={() => toggleSection(char.id, 'specials')}>
+                  <Section label="Specials ⚡" isOpen={expanded === 'specials'} onToggle={() => toggleSection(char.id, 'specials')}>
                     {specials.length === 0
                       ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No specials</p>
                       : specials.map(item => (
@@ -548,7 +546,7 @@ export default function CampaignPage() {
                   </Section>
 
                   {/* Inventory */}
-                  <Section label="Inventory 🎒" isOpen={expanded.has('inventory')} onToggle={() => toggleSection(char.id, 'inventory')}>
+                  <Section label="Inventory 🎒" isOpen={expanded === 'inventory'} onToggle={() => toggleSection(char.id, 'inventory')}>
                     {inventory.length === 0
                       ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No items</p>
                       : inventory.map(item => (

@@ -636,10 +636,6 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onReorder, onUseSlo
     acc[l] = spells.filter(s => s.spell_level === l)
     return acc
   }, {})
-  const firstNonEmpty = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].find(l => byLevel[l]?.length)
-  const [openLevel, setOpenLevel] = useState<number | null>(firstNonEmpty ?? null)
-
-  function toggleLevel(l: number) { setOpenLevel(prev => prev === l ? null : l) }
 
   function handleDragEnd(l: number, e: DragEndEvent) {
     const { active, over } = e
@@ -701,23 +697,15 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onReorder, onUseSlo
       {spells.length === 0 && <EmptyState emoji="✨" text="No spells yet" />}
       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => {
         if (!byLevel[l]?.length) return null
-        const isOpen = openLevel === l
         return (
           <div key={l} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-            <button onClick={() => toggleLevel(l)}
-              className="w-full flex items-center justify-between px-4 py-2.5"
-              style={{ background: 'var(--surface)' }}>
+            <div className="px-4 py-2" style={{ background: 'var(--surface)' }}>
               <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
                 {l === 0 ? 'Cantrips' : `${slotLevelLabel(l)} Level`}
               </span>
-              <div className="flex items-center gap-2">
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{byLevel[l].length}</span>
-                {isOpen ? <ChevronUp size={15} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown size={15} style={{ color: 'var(--text-muted)' }} />}
-              </div>
-            </button>
-            {isOpen && (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={e => handleDragEnd(l, e)}>
-                <SortableContext items={byLevel[l].map(s => s.id)} strategy={verticalListSortingStrategy}>
+            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={e => handleDragEnd(l, e)}>
+              <SortableContext items={byLevel[l].map(s => s.id)} strategy={verticalListSortingStrategy}>
                   {byLevel[l].map(spell => (
                     <SortableRow key={spell.id} id={spell.id}>
                       {drag => (
@@ -764,7 +752,6 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onReorder, onUseSlo
                   ))}
                 </SortableContext>
               </DndContext>
-            )}
           </div>
         )
       })}
