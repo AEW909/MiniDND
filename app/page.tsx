@@ -1,9 +1,10 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Plus, Eye, EyeOff, Trash2, Palette } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party } from '@/lib/types'
+import { useTheme, THEMES } from '@/lib/theme'
 import Modal from '@/components/Modal'
 
 const SESSION_KEY = 'minidnd_unlocked'
@@ -20,6 +21,7 @@ function setUnlocked(id: string) {
 
 export default function PartiesPage() {
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
   const [parties, setParties] = useState<Party[]>([])
   const [loading, setLoading] = useState(true)
   const [, forceRender] = useState(0)
@@ -36,6 +38,8 @@ export default function PartiesPage() {
   const [pinError, setPinError] = useState('')
   const [showPin, setShowPin] = useState(false)
   const pinRef = useRef<HTMLInputElement>(null)
+
+  const [showThemePicker, setShowThemePicker] = useState(false)
 
   useEffect(() => { loadParties() }, [])
   useEffect(() => { if (pinTarget) setTimeout(() => pinRef.current?.focus(), 100) }, [pinTarget])
@@ -100,11 +104,19 @@ export default function PartiesPage() {
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Choose your party</p>
           </div>
         </div>
-        <button onClick={() => { setShowCreate(true); setCreateError('') }}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
-          style={{ background: 'var(--gold)', color: '#1c1917' }}>
-          <Plus size={18} /> New Party
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowThemePicker(true)}
+            className="p-2.5 rounded-xl transition-opacity hover:opacity-80"
+            title="Change theme"
+            style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+            <Palette size={18} />
+          </button>
+          <button onClick={() => { setShowCreate(true); setCreateError('') }}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
+            style={{ background: 'var(--gold)', color: '#1c1917' }}>
+            <Plus size={18} /> New Party
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 p-6">
@@ -124,31 +136,76 @@ export default function PartiesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {parties.map(party => (
-              <button key={party.id} onClick={() => { forceRender(n => n + 1); attemptEnter(party) }}
-                className="relative text-left rounded-2xl p-6 transition-all duration-150 hover:scale-105 active:scale-100 group cursor-pointer overflow-hidden"
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: unlocked[party.id] ? 'var(--gold)' : 'var(--border)' }} />
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-5xl">{unlocked[party.id] ? '🛡️' : '🔒'}</span>
-                  {unlocked[party.id] && (
-                    <span onClick={e => deleteParty(party, e)}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all cursor-pointer"
-                      style={{ color: 'var(--text-muted)' }}>
-                      <Trash2 size={18} />
-                    </span>
-                  )}
-                </div>
-                <h2 className="font-display text-xl font-bold mb-1">{party.name}</h2>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  {unlocked[party.id] ? 'Tap to enter' : 'PIN required'}
-                </p>
-              </button>
-            ))}
+            {parties.map(party => {
+              const isUnlocked = unlocked[party.id]
+              const hasBg = !!party.background_url
+              return (
+                <button key={party.id} onClick={() => { forceRender(n => n + 1); attemptEnter(party) }}
+                  className="relative text-left rounded-2xl p-6 transition-all duration-150 hover:scale-105 active:scale-100 group cursor-pointer overflow-hidden"
+                  style={hasBg ? {
+                    backgroundImage: `linear-gradient(var(--overlay-color), var(--overlay-color)), url(${party.background_url})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    border: '1px solid var(--border)',
+                  } : {
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                  }}>
+                  <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: isUnlocked ? 'var(--gold)' : 'var(--border)' }} />
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-5xl">{isUnlocked ? '🛡️' : '🔒'}</span>
+                    {isUnlocked && (
+                      <span onClick={e => deleteParty(party, e)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all cursor-pointer"
+                        style={{ color: 'var(--text-muted)' }}>
+                        <Trash2 size={18} />
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="font-display text-xl font-bold mb-1">{party.name}</h2>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {isUnlocked ? 'Tap to enter' : 'PIN required'}
+                  </p>
+                </button>
+              )
+            })}
           </div>
         )}
       </main>
 
+      {/* Theme Picker */}
+      {showThemePicker && (
+        <Modal title="Choose Theme" onClose={() => setShowThemePicker(false)}>
+          <div className="flex flex-col gap-3">
+            {THEMES.map(t => (
+              <button key={t.id} onClick={() => { setTheme(t.id); setShowThemePicker(false) }}
+                className="flex items-center gap-4 p-4 rounded-xl text-left transition-all hover:opacity-90"
+                style={{
+                  background: t.preview.bg,
+                  border: `2px solid ${theme === t.id ? t.preview.accent : 'rgba(128,128,128,0.3)'}`,
+                }}>
+                <div className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-xl"
+                  style={{ background: t.preview.surface }}>
+                  {t.emoji}
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold" style={{ color: t.preview.text }}>{t.name}</p>
+                  <div className="flex gap-1.5 mt-1.5">
+                    {[t.preview.bg, t.preview.surface, t.preview.accent].map((c, i) => (
+                      <div key={i} className="w-4 h-4 rounded-full" style={{ background: c, border: '1px solid rgba(128,128,128,0.3)' }} />
+                    ))}
+                  </div>
+                </div>
+                {theme === t.id && (
+                  <span className="text-lg shrink-0" style={{ color: t.preview.accent }}>✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      {/* Create Party */}
       {showCreate && (
         <Modal title="Create Party" onClose={() => setShowCreate(false)}>
           <div className="flex flex-col gap-4">
@@ -182,6 +239,7 @@ export default function PartiesPage() {
         </Modal>
       )}
 
+      {/* PIN Entry */}
       {pinTarget && (
         <Modal title={`Enter PIN — ${pinTarget.name}`} onClose={() => setPinTarget(null)}>
           <div className="flex flex-col gap-4">

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, ArrowLeft, Swords, Trash2 } from 'lucide-react'
+import { Plus, ArrowLeft, Swords, Trash2, ImagePlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
 import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, getAvatarEmoji, abilityModifier } from '@/lib/constants'
@@ -39,6 +39,8 @@ export default function PartyPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [showBgPicker, setShowBgPicker] = useState(false)
+  const [bgInput, setBgInput] = useState('')
   const [newChar, setNewChar] = useState<NewChar>(defaultChar())
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -130,14 +132,26 @@ export default function PartyPage() {
     setCharacters(prev => prev.filter(c => c.id !== char.id))
   }
 
+  async function saveBackground(url: string | null) {
+    await supabase.from('parties').update({ background_url: url }).eq('id', id)
+    setParty(prev => prev ? { ...prev, background_url: url } : prev)
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-lg" style={{ color: 'var(--text-muted)' }}>
       Loading party…
     </div>
   )
 
+  const bgStyle = party?.background_url ? {
+    backgroundImage: `linear-gradient(var(--overlay-color), var(--overlay-color)), url(${party.background_url})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'local',
+  } : {}
+
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="min-h-full flex flex-col" style={bgStyle}>
       <header className="px-6 py-5 flex items-center gap-4 shrink-0"
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <button onClick={() => router.push('/')} className="p-2 rounded-xl transition-colors"
@@ -148,6 +162,12 @@ export default function PartyPage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--gold)' }}>{party?.name}</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{characters.length} adventurer{characters.length !== 1 ? 's' : ''}</p>
         </div>
+        <button onClick={() => { setBgInput(party?.background_url ?? ''); setShowBgPicker(true) }}
+          className="p-2 rounded-xl transition-opacity hover:opacity-80"
+          title="Set party background"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+          <ImagePlus size={18} />
+        </button>
         <button onClick={() => router.push(`/campaign/${id}`)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--gold)' }}>
@@ -198,6 +218,38 @@ export default function PartyPage() {
           </div>
         )}
       </main>
+
+      {showBgPicker && (
+        <Modal title="Party Background" onClose={() => setShowBgPicker(false)}>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              Paste an image URL to use as the background for this party's pages and card.
+            </p>
+            <input type="url" placeholder="https://example.com/image.jpg" value={bgInput}
+              onChange={e => setBgInput(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none text-sm"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+            {bgInput && (
+              <div className="w-full h-32 rounded-xl overflow-hidden"
+                style={{ backgroundImage: `url(${bgInput})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+            )}
+            <div className="flex gap-3">
+              {party?.background_url && (
+                <button onClick={() => { saveBackground(null); setShowBgPicker(false) }}
+                  className="flex-1 py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--danger)' }}>
+                  Remove
+                </button>
+              )}
+              <button onClick={() => { saveBackground(bgInput.trim() || null); setShowBgPicker(false) }}
+                className="flex-1 py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
+                style={{ background: 'var(--gold)', color: '#1c1917' }}>
+                Save
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showCreate && (
         <Modal title="New Character" onClose={() => setShowCreate(false)} maxWidth="max-w-lg">

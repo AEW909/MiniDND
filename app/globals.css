@@ -1,6 +1,7 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=IM+Fell+English+SC&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
 
+/* ── Dungeon (default) ─────────────────────────────────────────────────── */
 :root {
   --background: #1c1917;
   --surface: #292524;
@@ -14,6 +15,47 @@
   --green: #22c55e;
   --danger: #ef4444;
   --success: #22c55e;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: system-ui, -apple-system, sans-serif;
+  --overlay-color: rgba(28, 25, 23, 0.82);
+}
+
+/* ── Arcane ────────────────────────────────────────────────────────────── */
+[data-theme="arcane"] {
+  --background: #0f0e17;
+  --surface: #1a1830;
+  --surface-2: #252344;
+  --border: #3d3878;
+  --text: #e8e6f0;
+  --text-muted: #9088c0;
+  --gold: #a78bfa;
+  --gold-light: #c4b5fd;
+  --red: #f87171;
+  --green: #34d399;
+  --danger: #f87171;
+  --success: #34d399;
+  --font-display: 'Cinzel', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --overlay-color: rgba(15, 14, 23, 0.82);
+}
+
+/* ── Parchment ─────────────────────────────────────────────────────────── */
+[data-theme="parchment"] {
+  --background: #f5efe0;
+  --surface: #ede3cc;
+  --surface-2: #e4d5b8;
+  --border: #c4a87a;
+  --text: #2c1a0e;
+  --text-muted: #7a5c40;
+  --gold: #8b5e2a;
+  --gold-light: #b37d3a;
+  --red: #c0392b;
+  --green: #27ae60;
+  --danger: #c0392b;
+  --success: #27ae60;
+  --font-display: 'IM Fell English SC', Georgia, serif;
+  --font-body: 'Crimson Text', Georgia, serif;
+  --overlay-color: rgba(245, 239, 224, 0.82);
 }
 
 @theme inline {
@@ -34,7 +76,7 @@
 }
 
 .font-display {
-  font-family: 'Cinzel', Georgia, serif;
+  font-family: var(--font-display);
   letter-spacing: 0.02em;
 }
 
@@ -45,7 +87,7 @@ html, body {
 body {
   background: var(--background);
   color: var(--text);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body);
   -webkit-tap-highlight-color: transparent;
 }
 

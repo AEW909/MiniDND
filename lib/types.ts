@@ -2,6 +2,7 @@ export interface Party {
   id: string
   name: string
   pin: string
+  background_url: string | null
   created_at: string
 }
 

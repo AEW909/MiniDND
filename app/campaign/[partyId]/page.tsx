@@ -27,6 +27,7 @@ export default function CampaignPage() {
   const { partyId } = useParams<{ partyId: string }>()
   const router = useRouter()
   const [partyName, setPartyName] = useState('')
+  const [partyBg, setPartyBg] = useState<string | null>(null)
   const [charData, setCharData] = useState<CharData[]>([])
   const [loading, setLoading] = useState(true)
   const [hpEdit, setHpEdit] = useState<{ charId: string; value: string } | null>(null)
@@ -56,8 +57,9 @@ export default function CampaignPage() {
 
   async function load() {
     setLoading(true)
-    const { data: party } = await supabase.from('parties').select('name').eq('id', partyId).single()
+    const { data: party } = await supabase.from('parties').select('name, background_url').eq('id', partyId).single()
     setPartyName(party?.name ?? '')
+    setPartyBg(party?.background_url ?? null)
 
     const { data: chars } = await supabase.from('characters').select('*').eq('party_id', partyId).order('sort_order').order('created_at')
     if (!chars) { setLoading(false); return }
@@ -283,8 +285,14 @@ export default function CampaignPage() {
     </div>
   )
 
+  const bgStyle = partyBg ? {
+    backgroundImage: `linear-gradient(var(--overlay-color), var(--overlay-color)), url(${partyBg})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  } : {}
+
   return (
-    <div className="h-full flex flex-col" style={{ maxHeight: '100dvh' }}>
+    <div className="h-full flex flex-col" style={{ maxHeight: '100dvh', ...bgStyle }}>
       <header className="shrink-0 px-4 py-3 flex items-center gap-3"
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
         <button onClick={() => router.back()} className="p-2 rounded-xl" style={{ color: 'var(--text-muted)' }}>
