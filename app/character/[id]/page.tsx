@@ -56,6 +56,11 @@ export default function CharacterPage() {
   const [showAddOther, setShowAddOther] = useState(false)
   const [showEditChar, setShowEditChar] = useState(false)
 
+  // Edit modals
+  const [editingAttack, setEditingAttack] = useState<CharacterAttack | null>(null)
+  const [editingSpell, setEditingSpell] = useState<CharacterSpell | null>(null)
+  const [editingOther, setEditingOther] = useState<CharacterOther | null>(null)
+
   useEffect(() => { load() }, [id])
 
   async function load() {
@@ -159,6 +164,27 @@ export default function CharacterPage() {
     setOther(prev => prev.filter(o => o.id !== item.id))
   }
 
+  async function saveEditAttack(data: object) {
+    if (!editingAttack) return
+    const { data: row } = await supabase.from('character_attacks').update(data).eq('id', editingAttack.id).select().single()
+    if (row) setAttacks(prev => prev.map(a => a.id === editingAttack.id ? row : a))
+    setEditingAttack(null)
+  }
+
+  async function saveEditSpell(data: object) {
+    if (!editingSpell) return
+    const { data: row } = await supabase.from('character_spells').update(data).eq('id', editingSpell.id).select().single()
+    if (row) setSpells(prev => prev.map(s => s.id === editingSpell.id ? row : s))
+    setEditingSpell(null)
+  }
+
+  async function saveEditOther(data: object) {
+    if (!editingOther) return
+    const { data: row } = await supabase.from('character_other').update(data).eq('id', editingOther.id).select().single()
+    if (row) setOther(prev => prev.map(o => o.id === editingOther.id ? row : o))
+    setEditingOther(null)
+  }
+
   if (loading || !char) return (
     <div className="flex items-center justify-center h-screen text-lg" style={{ color: 'var(--text-muted)' }}>
       Loading character…
@@ -229,12 +255,12 @@ export default function CharacterPage() {
           <SkillsTab skills={skills} scores={scores} prof={prof} onToggle={toggleSkill} />
         )}
         {tab === 'attacks' && (
-          <AttacksTab attacks={attacks} onAdd={() => setShowAddAttack(true)} onDelete={deleteAttack} />
+          <AttacksTab attacks={attacks} onAdd={() => setShowAddAttack(true)} onDelete={deleteAttack} onEdit={setEditingAttack} />
         )}
         {tab === 'spells' && (
           <SpellsTab
             spells={spells} slots={slots}
-            onAdd={() => setShowAddSpell(true)} onDelete={deleteSpell}
+            onAdd={() => setShowAddSpell(true)} onDelete={deleteSpell} onEdit={setEditingSpell}
             onUseSlot={useSlot} onRestoreSlot={restoreSlot} onRestoreAll={restoreAllSlots}
             charClass={char.class} subclass={char.subclass} level={char.level}
           />
@@ -243,7 +269,7 @@ export default function CharacterPage() {
           <InventoryTab inventory={inventory} onAdd={() => setShowAddInventory(true)} onUpdateQty={updateQty} onDelete={deleteInventory} />
         )}
         {tab === 'other' && (
-          <OtherTab other={other} onAdd={() => setShowAddOther(true)} onDelete={deleteOther} />
+          <OtherTab other={other} onAdd={() => setShowAddOther(true)} onDelete={deleteOther} onEdit={setEditingOther} />
         )}
       </div>
 
@@ -322,6 +348,19 @@ export default function CharacterPage() {
             if (row) setOther(prev => [...prev, row])
             setShowAddOther(false)
           }} />
+      )}
+
+      {editingAttack && (
+        <AddAttackModal title="Edit Attack" initial={editingAttack}
+          onClose={() => setEditingAttack(null)} onSave={saveEditAttack} />
+      )}
+      {editingSpell && (
+        <AddSpellModal title="Edit Spell" initial={editingSpell}
+          onClose={() => setEditingSpell(null)} onSave={saveEditSpell} />
+      )}
+      {editingOther && (
+        <AddOtherModal title="Edit Special" initial={editingOther}
+          onClose={() => setEditingOther(null)} onSave={saveEditOther} />
       )}
     </div>
   )
@@ -451,15 +490,17 @@ function SkillsTab({ skills, scores, prof, onToggle }: {
 
 // ─── Attacks Tab ─────────────────────────────────────────────────────────────
 
-function AttacksTab({ attacks, onAdd, onDelete }: {
-  attacks: CharacterAttack[]; onAdd: () => void; onDelete: (a: CharacterAttack) => void
+function AttacksTab({ attacks, onAdd, onDelete, onEdit }: {
+  attacks: CharacterAttack[]; onAdd: () => void
+  onDelete: (a: CharacterAttack) => void; onEdit: (a: CharacterAttack) => void
 }) {
   return (
     <div className="p-4 flex flex-col gap-3">
       <AddButton onClick={onAdd} label="Add Attack" />
       {attacks.length === 0 && <EmptyState emoji="⚔️" text="No attacks yet" />}
       {attacks.map(atk => (
-        <div key={atk.id} className="rounded-2xl p-4 flex items-start gap-3"
+        <div key={atk.id} onClick={() => onEdit(atk)}
+          className="rounded-2xl p-4 flex items-start gap-3 cursor-pointer hover:brightness-110 transition-all"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
           <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
             <span className="text-2xl">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
@@ -473,14 +514,22 @@ function AttacksTab({ attacks, onAdd, onDelete }: {
           <div className="flex-1 min-w-0">
             <p className="font-bold">{atk.name}</p>
             {atk.description && <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{atk.description}</p>}
-            {atk.notation && (
-              <span className="inline-block mt-1 px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
-                style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
-                {atk.notation}
-              </span>
-            )}
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {atk.to_hit && (
+                <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                  style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                  {atk.to_hit} to hit
+                </span>
+              )}
+              {atk.notation && (
+                <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                  style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
+                  {atk.notation}
+                </span>
+              )}
+            </div>
           </div>
-          <button onClick={() => onDelete(atk)} className="p-1 rounded-lg shrink-0"
+          <button onClick={e => { e.stopPropagation(); onDelete(atk) }} className="p-1 rounded-lg shrink-0"
             style={{ color: 'var(--text-muted)' }}>
             <Trash2 size={16} />
           </button>
@@ -492,9 +541,9 @@ function AttacksTab({ attacks, onAdd, onDelete }: {
 
 // ─── Spells Tab ───────────────────────────────────────────────────────────────
 
-function SpellsTab({ spells, slots, onAdd, onDelete, onUseSlot, onRestoreSlot, onRestoreAll, charClass, subclass, level }: {
+function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onUseSlot, onRestoreSlot, onRestoreAll, charClass, subclass, level }: {
   spells: CharacterSpell[]; slots: CharacterSpellSlot[]
-  onAdd: () => void; onDelete: (s: CharacterSpell) => void
+  onAdd: () => void; onDelete: (s: CharacterSpell) => void; onEdit: (s: CharacterSpell) => void
   onUseSlot: (s: CharacterSpellSlot) => void; onRestoreSlot: (s: CharacterSpellSlot) => void
   onRestoreAll: () => void
   charClass: string; subclass: string | null; level: number
@@ -562,7 +611,8 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onUseSlot, onRestoreSlot, o
               </span>
             </div>
             {byLevel[l].map(spell => (
-              <div key={spell.id} className="flex items-start gap-3 px-4 py-3"
+              <div key={spell.id} onClick={() => onEdit(spell)}
+                className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:brightness-110 transition-all"
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
                 <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
                   <span className="text-xl">{getDamageEmoji(spell.damage_type) || '✨'}</span>
@@ -576,14 +626,22 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onUseSlot, onRestoreSlot, o
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm">{spell.name}</p>
                   {spell.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
-                  {spell.notation && (
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
-                      style={{ background: 'var(--surface)', color: 'var(--gold)' }}>
-                      {spell.notation}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {spell.to_hit && (
+                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
+                        style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                        {spell.to_hit} to hit
+                      </span>
+                    )}
+                    {spell.notation && (
+                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
+                        style={{ background: 'var(--surface)', color: 'var(--gold)' }}>
+                        {spell.notation}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <button onClick={() => onDelete(spell)} className="p-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                <button onClick={e => { e.stopPropagation(); onDelete(spell) }} className="p-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
                   <Trash2 size={15} />
                 </button>
               </div>
@@ -631,8 +689,9 @@ function InventoryTab({ inventory, onAdd, onUpdateQty, onDelete }: {
 
 // ─── Specials Tab ─────────────────────────────────────────────────────────────
 
-function OtherTab({ other, onAdd, onDelete }: {
-  other: CharacterOther[]; onAdd: () => void; onDelete: (o: CharacterOther) => void
+function OtherTab({ other, onAdd, onDelete, onEdit }: {
+  other: CharacterOther[]; onAdd: () => void
+  onDelete: (o: CharacterOther) => void; onEdit: (o: CharacterOther) => void
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const toggle = (id: string) => setExpanded(prev => {
@@ -648,6 +707,12 @@ function OtherTab({ other, onAdd, onDelete }: {
           <div onClick={() => toggle(item.id)}
             className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
             <span className="flex-1 text-left font-bold">{item.name}</span>
+            {item.to_hit && (
+              <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                {item.to_hit} to hit
+              </span>
+            )}
             {item.notation && (
               <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
                 style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
@@ -661,6 +726,9 @@ function OtherTab({ other, onAdd, onDelete }: {
               </span>
             )}
             {expanded.has(item.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            <button onClick={e => { e.stopPropagation(); onEdit(item) }} className="p-1" style={{ color: 'var(--text-muted)' }} title="Edit">
+              ✏️
+            </button>
             <button onClick={e => { e.stopPropagation(); onDelete(item) }} className="p-1 ml-1" style={{ color: 'var(--text-muted)' }}>
               <Trash2 size={15} />
             </button>
@@ -678,33 +746,46 @@ function OtherTab({ other, onAdd, onDelete }: {
 
 // ─── Add Modals ───────────────────────────────────────────────────────────────
 
-function AddAttackModal({ onClose, onSave }: { onClose: () => void; onSave: (d: object) => void }) {
-  const [name, setName] = useState(''); const [desc, setDesc] = useState('')
-  const [notation, setNotation] = useState(''); const [dmgType, setDmgType] = useState('')
+function AddAttackModal({ title = 'Add Attack', initial, onClose, onSave }: {
+  title?: string; initial?: CharacterAttack; onClose: () => void; onSave: (d: object) => void
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [desc, setDesc] = useState(initial?.description ?? '')
+  const [notation, setNotation] = useState(initial?.notation ?? '')
+  const [dmgType, setDmgType] = useState(initial?.damage_type ?? '')
+  const [toHit, setToHit] = useState(initial?.to_hit ?? '')
   return (
-    <Modal title="Add Attack" onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Field label="Name"><input autoFocus type="text" placeholder="Longsword" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
         <Field label="Description"><input type="text" placeholder="Melee weapon attack" value={desc} onChange={e => setDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
-        <Field label="Dice notation"><input type="text" placeholder="1d8+3" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="To Hit (e.g. +3)"><input type="text" placeholder="+3" value={toHit} onChange={e => setToHit(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+          <Field label="Dice notation"><input type="text" placeholder="1d8+3" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        </div>
         <Field label="Damage type">
           <DamageTypePicker value={dmgType} onChange={setDmgType} />
         </Field>
-        <button onClick={() => onSave({ name, description: desc, notation, damage_type: dmgType || null })}
+        <button onClick={() => onSave({ name, description: desc, notation: notation || null, damage_type: dmgType || null, to_hit: toHit || null })}
           disabled={!name.trim()} className="w-full py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#1c1917' }}>
-          Add Attack
+          {initial ? 'Save Changes' : 'Add Attack'}
         </button>
       </div>
     </Modal>
   )
 }
 
-function AddSpellModal({ onClose, onSave }: { onClose: () => void; onSave: (d: object) => void }) {
-  const [name, setName] = useState(''); const [desc, setDesc] = useState('')
-  const [notation, setNotation] = useState(''); const [dmgType, setDmgType] = useState('')
-  const [level, setLevel] = useState('0')
+function AddSpellModal({ title = 'Add Spell', initial, onClose, onSave }: {
+  title?: string; initial?: CharacterSpell; onClose: () => void; onSave: (d: object) => void
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [desc, setDesc] = useState(initial?.description ?? '')
+  const [notation, setNotation] = useState(initial?.notation ?? '')
+  const [dmgType, setDmgType] = useState(initial?.damage_type ?? '')
+  const [level, setLevel] = useState(String(initial?.spell_level ?? '0'))
+  const [toHit, setToHit] = useState(initial?.to_hit ?? '')
   return (
-    <Modal title="Add Spell" onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Name"><input autoFocus type="text" placeholder="Fireball" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
@@ -716,11 +797,14 @@ function AddSpellModal({ onClose, onSave }: { onClose: () => void; onSave: (d: o
           </Field>
         </div>
         <Field label="Description"><input type="text" placeholder="Deals fire damage in a 20ft sphere" value={desc} onChange={e => setDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
-        <Field label="Dice notation"><input type="text" placeholder="8d6" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="To Hit (e.g. +5)"><input type="text" placeholder="+5" value={toHit} onChange={e => setToHit(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+          <Field label="Dice notation"><input type="text" placeholder="8d6" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        </div>
         <Field label="Damage type"><DamageTypePicker value={dmgType} onChange={setDmgType} /></Field>
-        <button onClick={() => onSave({ name, description: desc, notation, damage_type: dmgType || null, spell_level: parseInt(level) })}
+        <button onClick={() => onSave({ name, description: desc, notation: notation || null, damage_type: dmgType || null, to_hit: toHit || null, spell_level: parseInt(level) })}
           disabled={!name.trim()} className="w-full py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#1c1917' }}>
-          Add Spell
+          {initial ? 'Save Changes' : 'Add Spell'}
         </button>
       </div>
     </Modal>
@@ -743,15 +827,24 @@ function AddInventoryModal({ onClose, onSave }: { onClose: () => void; onSave: (
   )
 }
 
-function AddOtherModal({ onClose, onSave }: { onClose: () => void; onSave: (d: object) => void }) {
-  const [name, setName] = useState(''); const [desc, setDesc] = useState(''); const [notation, setNotation] = useState('')
-  const [hasSlots, setHasSlots] = useState(false); const [maxSlots, setMaxSlots] = useState(1)
+function AddOtherModal({ title = 'Add Special', initial, onClose, onSave }: {
+  title?: string; initial?: CharacterOther; onClose: () => void; onSave: (d: object) => void
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [desc, setDesc] = useState(initial?.description ?? '')
+  const [notation, setNotation] = useState(initial?.notation ?? '')
+  const [toHit, setToHit] = useState(initial?.to_hit ?? '')
+  const [hasSlots, setHasSlots] = useState(initial?.has_slots ?? false)
+  const [maxSlots, setMaxSlots] = useState(initial?.max_slots ?? 1)
   return (
-    <Modal title="Add Special" onClose={onClose}>
+    <Modal title={title} onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Field label="Name"><input autoFocus type="text" placeholder="Second Wind" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
         <Field label="Description"><input type="text" placeholder="Regain HP as a bonus action…" value={desc} onChange={e => setDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
-        <Field label="Dice notation (optional)"><input type="text" placeholder="1d10+5" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="To Hit (e.g. +3)"><input type="text" placeholder="+3" value={toHit} onChange={e => setToHit(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+          <Field label="Dice notation (optional)"><input type="text" placeholder="1d10+5" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        </div>
         <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
           <div>
             <p className="text-sm font-semibold">Trackable uses</p>
@@ -777,9 +870,9 @@ function AddOtherModal({ onClose, onSave }: { onClose: () => void; onSave: (d: o
             </div>
           </Field>
         )}
-        <button onClick={() => onSave({ name, description: desc, notation: notation || null, has_slots: hasSlots, max_slots: hasSlots ? maxSlots : 1, used_slots: 0 })}
+        <button onClick={() => onSave({ name, description: desc, notation: notation || null, to_hit: toHit || null, has_slots: hasSlots, max_slots: hasSlots ? maxSlots : 1, used_slots: initial?.used_slots ?? 0 })}
           disabled={!name.trim()} className="w-full py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#1c1917' }}>
-          Add Special
+          {initial ? 'Save Changes' : 'Add Special'}
         </button>
       </div>
     </Modal>

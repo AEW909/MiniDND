@@ -44,6 +44,7 @@ export interface CharacterAttack {
   description: string | null
   notation: string | null
   damage_type: string | null
+  to_hit: string | null
   sort_order: number
   created_at: string
 }
@@ -55,6 +56,7 @@ export interface CharacterSpell {
   description: string | null
   notation: string | null
   damage_type: string | null
+  to_hit: string | null
   spell_level: number
   sort_order: number
   created_at: string
@@ -83,6 +85,7 @@ export interface CharacterOther {
   name: string
   description: string | null
   notation: string | null
+  to_hit: string | null
   has_slots: boolean
   max_slots: number
   used_slots: number
