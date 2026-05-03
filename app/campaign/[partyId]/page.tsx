@@ -127,13 +127,22 @@ export default function CampaignPage() {
   }
 
   async function updateQty(charId: string, item: CharacterInventory, delta: number) {
-    const qty = Math.max(0, item.quantity + delta)
-    await supabase.from('character_inventory').update({ quantity: qty }).eq('id', item.id)
-    setCharData(prev => prev.map(cd =>
-      cd.char.id === charId
-        ? { ...cd, inventory: cd.inventory.map(i => i.id === item.id ? { ...i, quantity: qty } : i) }
-        : cd
-    ))
+    const qty = item.quantity + delta
+    if (qty <= 0) {
+      setCharData(prev => prev.map(cd =>
+        cd.char.id === charId
+          ? { ...cd, inventory: cd.inventory.filter(i => i.id !== item.id) }
+          : cd
+      ))
+      await supabase.from('character_inventory').delete().eq('id', item.id)
+    } else {
+      setCharData(prev => prev.map(cd =>
+        cd.char.id === charId
+          ? { ...cd, inventory: cd.inventory.map(i => i.id === item.id ? { ...i, quantity: qty } : i) }
+          : cd
+      ))
+      await supabase.from('character_inventory').update({ quantity: qty }).eq('id', item.id)
+    }
   }
 
   async function useSlot(charId: string, slot: CharacterSpellSlot) {
