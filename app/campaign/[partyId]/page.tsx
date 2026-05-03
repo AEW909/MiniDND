@@ -308,10 +308,10 @@ export default function CampaignPage() {
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
             const effectiveHp = char.current_hp + char.temp_hp
-            const hpPct = Math.max(0, Math.min(1, char.current_hp / char.max_hp))
-            const effectivePct = Math.min(1, effectiveHp / char.max_hp)
+            const hpPct = char.max_hp > 0 ? Math.max(0, Math.min(1, char.current_hp / char.max_hp)) : 0
+            const tempPct = char.max_hp > 0 ? Math.min(char.temp_hp / char.max_hp, 1 - hpPct) : 0
             const hasTemp = char.temp_hp > 0
-            const barColor = hasTemp ? '#3b82f6' : (() => {
+            const gradientColor = (() => {
               if (hpPct >= 0.5) {
                 const t = (hpPct - 0.5) / 0.5
                 return `rgb(${Math.round(34 + (245 - 34) * (1 - t))},${Math.round(197 + (158 - 197) * (1 - t))},${Math.round(94 + (11 - 94) * (1 - t))})`
@@ -320,6 +320,7 @@ export default function CampaignPage() {
                 return `rgb(${Math.round(245 + (239 - 245) * (1 - t))},${Math.round(158 + (68 - 158) * (1 - t))},${Math.round(11 + (68 - 11) * (1 - t))})`
               }
             })()
+            const numberColor = hasTemp ? '#60a5fa' : gradientColor
 
             return (
               <div key={char.id} className="flex flex-col border-r overflow-y-auto"
@@ -354,19 +355,23 @@ export default function CampaignPage() {
                             onBlur={() => saveHp(char, hpEdit.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveHp(char, hpEdit.value); if (e.key === 'Escape') setHpEdit(null) }}
                             className="w-14 text-center font-bold text-sm rounded-lg outline-none"
-                            style={{ background: 'var(--surface-2)', color: barColor, border: `1px solid ${barColor}` }} />
+                            style={{ background: 'var(--surface-2)', color: numberColor, border: `1px solid ${numberColor}` }} />
                         ) : (
                           <span className="font-bold cursor-pointer"
-                            style={{ color: barColor }}
+                            style={{ color: numberColor }}
                             onClick={() => setHpEdit({ charId: char.id, value: String(effectiveHp) })}>
                             {effectiveHp}
                           </span>
                         )}
                         <span style={{ color: 'var(--text-muted)' }}>/ {char.max_hp}</span>
                       </div>
-                      <div className="h-3 rounded-full" style={{ background: 'var(--surface-2)' }}>
-                        <div className="h-full rounded-full transition-all duration-300"
-                          style={{ background: barColor, width: `${effectivePct * 100}%` }} />
+                      <div className="h-3 rounded-full overflow-hidden flex" style={{ background: 'var(--surface-2)' }}>
+                        <div className="h-full transition-all duration-300"
+                          style={{ background: gradientColor, width: `${hpPct * 100}%` }} />
+                        {hasTemp && (
+                          <div className="h-full transition-all duration-300"
+                            style={{ background: '#3b82f6', width: `${tempPct * 100}%` }} />
+                        )}
                       </div>
                     </div>
                     <button onClick={() => updateHp(char, 1)}
