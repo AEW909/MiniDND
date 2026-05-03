@@ -294,67 +294,76 @@ export default function CampaignPage() {
                   </Section>
 
                   {/* Attacks */}
-                  {attacks.length > 0 && (
-                    <Section label="Attacks ⚔️" isOpen={expanded.has('attacks')} onToggle={() => toggleSection(char.id, 'attacks')}>
-                      {attacks.map(atk => (
+                  <Section label="Attacks ⚔️" isOpen={expanded.has('attacks')} onToggle={() => toggleSection(char.id, 'attacks')}>
+                    {attacks.length === 0
+                      ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No attacks</p>
+                      : attacks.map(atk => (
                         <div key={atk.id} className="flex items-center gap-2 px-4 py-2"
                           style={{ borderTop: '1px solid var(--border)' }}>
                           <span className="text-base">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold truncate">{atk.name}</p>
                             {atk.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{atk.notation}</p>}
+                            {atk.description && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{atk.description}</p>}
                           </div>
                         </div>
-                      ))}
-                    </Section>
-                  )}
+                      ))
+                    }
+                  </Section>
 
                   {/* Spell slots */}
-                  {slots.length > 0 && (
-                    <Section label="Spells ✨" isOpen={expanded.has('spells')} onToggle={() => toggleSection(char.id, 'spells')}>
-                      <div className="px-4 py-2 flex flex-col gap-1.5">
-                        {slots.map(slot => {
-                          const avail = slot.max_slots - slot.used_slots
-                          return (
-                            <div key={slot.id} className="flex items-center gap-2">
-                              <span className="text-xs w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
-                                {slotLevelLabel(slot.slot_level)}
-                              </span>
-                              <div className="flex gap-1 flex-wrap">
-                                {Array.from({ length: slot.max_slots }).map((_, i) => {
-                                  const used = i >= avail
-                                  return (
-                                    <button key={i}
-                                      onClick={() => used ? restoreSlot(char.id, slot) : useSlot(char.id, slot)}
-                                      className="w-5 h-5 rounded-full transition-all"
-                                      style={{
-                                        background: used ? 'var(--surface-2)' : 'var(--gold)',
-                                        border: `1.5px solid ${used ? 'var(--border)' : 'var(--gold)'}`,
-                                      }} />
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {spells.slice(0, 5).map(spell => (
-                        <div key={spell.id} className="flex items-center gap-2 px-4 py-1.5"
-                          style={{ borderTop: '1px solid var(--border)' }}>
-                          <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate">{spell.name}</p>
-                            {spell.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{spell.notation}</p>}
+                  <Section label="Spells ✨" isOpen={expanded.has('spells')} onToggle={() => toggleSection(char.id, 'spells')}>
+                    {slots.length === 0 && spells.length === 0
+                      ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No spells</p>
+                      : <>
+                        {slots.length > 0 && (
+                          <div className="px-4 py-2 flex flex-col gap-1.5">
+                            {slots.map(slot => {
+                              const avail = slot.max_slots - slot.used_slots
+                              return (
+                                <div key={slot.id} className="flex items-center gap-2">
+                                  <span className="text-xs w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                                    {slotLevelLabel(slot.slot_level)}
+                                  </span>
+                                  <div className="flex gap-1 flex-wrap">
+                                    {Array.from({ length: slot.max_slots }).map((_, i) => {
+                                      const used = i >= avail
+                                      return (
+                                        <button key={i}
+                                          onClick={() => used ? restoreSlot(char.id, slot) : useSlot(char.id, slot)}
+                                          className="w-5 h-5 rounded-full transition-all"
+                                          style={{
+                                            background: used ? 'var(--surface-2)' : 'var(--gold)',
+                                            border: `1.5px solid ${used ? 'var(--border)' : 'var(--gold)'}`,
+                                          }} />
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
-                        </div>
-                      ))}
-                    </Section>
-                  )}
+                        )}
+                        {spells.slice(0, 5).map(spell => (
+                          <div key={spell.id} className="flex items-center gap-2 px-4 py-1.5"
+                            style={{ borderTop: '1px solid var(--border)' }}>
+                            <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate">{spell.name}</p>
+                              {spell.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{spell.notation}</p>}
+                              {spell.description && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    }
+                  </Section>
 
                   {/* Inventory */}
-                  {inventory.length > 0 && (
-                    <Section label="Inventory 🎒" isOpen={expanded.has('inventory')} onToggle={() => toggleSection(char.id, 'inventory')}>
-                      {inventory.map(item => (
+                  <Section label="Inventory 🎒" isOpen={expanded.has('inventory')} onToggle={() => toggleSection(char.id, 'inventory')}>
+                    {inventory.length === 0
+                      ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No items</p>
+                      : inventory.map(item => (
                         <div key={item.id} className="flex items-center gap-2 px-4 py-2"
                           style={{ borderTop: '1px solid var(--border)' }}>
                           <span className="flex-1 text-xs truncate">{item.name}</span>
@@ -368,9 +377,9 @@ export default function CampaignPage() {
                               style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
                           </div>
                         </div>
-                      ))}
-                    </Section>
-                  )}
+                      ))
+                    }
+                  </Section>
                 </div>
               </div>
             )
