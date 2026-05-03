@@ -490,24 +490,37 @@ export default function CampaignPage() {
                             })}
                           </div>
                         )}
-                        {spells.slice(0, 5).map(spell => (
-                          <div key={spell.id} className="flex items-center gap-2 px-4 py-1.5"
-                            style={{ borderTop: '1px solid var(--border)' }}>
-                            <div className="flex flex-col items-center gap-0.5 shrink-0">
-                              <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
-                              {spell.damage_type && (
-                                <span style={{ background: getDamageColor(spell.damage_type) + '33', color: getDamageColor(spell.damage_type), fontSize: '9px', padding: '0 3px', borderRadius: '3px' }}>
-                                  {getDamageLabel(spell.damage_type)}
+                        {[0,1,2,3,4,5,6,7,8,9].map(lvl => {
+                          const group = spells.filter(s => s.spell_level === lvl)
+                          if (!group.length) return null
+                          return (
+                            <div key={lvl}>
+                              <div className="px-4 py-1" style={{ background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+                                <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>
+                                  {lvl === 0 ? 'Cantrips' : `${slotLevelLabel(lvl)} Level`}
                                 </span>
-                              )}
+                              </div>
+                              {group.map(spell => (
+                                <div key={spell.id} className="flex items-center gap-2 px-4 py-1.5"
+                                  style={{ borderTop: '1px solid var(--border)' }}>
+                                  <div className="flex flex-col items-center gap-0.5 shrink-0">
+                                    <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                                    {spell.damage_type && (
+                                      <span style={{ background: getDamageColor(spell.damage_type) + '33', color: getDamageColor(spell.damage_type), fontSize: '9px', padding: '0 3px', borderRadius: '3px' }}>
+                                        {getDamageLabel(spell.damage_type)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-medium truncate">{spell.name}</p>
+                                    {spell.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{spell.notation}</p>}
+                                    {spell.to_hit && <p className="text-xs font-mono" style={{ color: '#818cf8' }}>{spell.to_hit} to hit</p>}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate">{spell.name}</p>
-                              {spell.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{spell.notation}</p>}
-                              {spell.description && <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </>
                     }
                   </Section>
