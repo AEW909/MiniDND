@@ -30,7 +30,6 @@ export default function CampaignPage() {
   const [charData, setCharData] = useState<CharData[]>([])
   const [loading, setLoading] = useState(true)
   const [hpEdit, setHpEdit] = useState<{ charId: string; value: string } | null>(null)
-  const [tempEdit, setTempEdit] = useState<{ charId: string; value: string } | null>(null)
 
   useEffect(() => {
     load()
@@ -119,32 +118,54 @@ export default function CampaignPage() {
     })))
   }
 
-  async function updateHp(char: Character, delta: number) {
-    const newHp = Math.max(0, Math.min(char.current_hp + delta, char.max_hp))
+  async function applyHpChange(char: Character, newHp: number, newTemp: number) {
     setCharData(prev => prev.map(cd =>
-      cd.char.id === char.id ? { ...cd, char: { ...cd.char, current_hp: newHp } } : cd
+      cd.char.id === char.id ? { ...cd, char: { ...cd.char, current_hp: newHp, temp_hp: newTemp } } : cd
     ))
-    await supabase.from('characters').update({ current_hp: newHp }).eq('id', char.id)
+    await supabase.from('characters').update({ current_hp: newHp, temp_hp: newTemp }).eq('id', char.id)
+  }
+
+  function damageChar(char: Character, damage: number): [number, number] {
+    // Temp HP absorbs damage first
+    if (char.temp_hp >= damage) return [char.current_hp, char.temp_hp - damage]
+    const remaining = damage - char.temp_hp
+    return [Math.max(0, char.current_hp - remaining), 0]
+  }
+
+  async function updateHp(char: Character, delta: number) {
+    if (delta < 0) {
+      const [newHp, newTemp] = damageChar(char, -delta)
+      await applyHpChange(char, newHp, newTemp)
+    } else {
+      // Healing goes to current HP only, capped at max
+      await applyHpChange(char, Math.min(char.max_hp, char.current_hp + delta), char.temp_hp)
+    }
+  }
+
+  async function addTemp(char: Character) {
+    await applyHpChange(char, char.current_hp, char.temp_hp + 1)
+  }
+
+  async function clearTemp(char: Character) {
+    await applyHpChange(char, char.current_hp, 0)
   }
 
   async function saveHp(char: Character, rawValue: string) {
     const parsed = parseInt(rawValue)
-    const newHp = isNaN(parsed) ? char.current_hp : Math.max(0, Math.min(parsed, char.max_hp))
     setHpEdit(null)
-    setCharData(prev => prev.map(cd =>
-      cd.char.id === char.id ? { ...cd, char: { ...cd.char, current_hp: newHp } } : cd
-    ))
-    await supabase.from('characters').update({ current_hp: newHp }).eq('id', char.id)
-  }
-
-  async function saveTemp(char: Character, rawValue: string) {
-    const parsed = parseInt(rawValue)
-    const newTemp = isNaN(parsed) || parsed < 0 ? 0 : parsed
-    setTempEdit(null)
-    setCharData(prev => prev.map(cd =>
-      cd.char.id === char.id ? { ...cd, char: { ...cd.char, temp_hp: newTemp } } : cd
-    ))
-    await supabase.from('characters').update({ temp_hp: newTemp }).eq('id', char.id)
+    if (isNaN(parsed)) return
+    // Typed value is the new effective HP (current + temp)
+    const oldEffective = char.current_hp + char.temp_hp
+    let newHp: number, newTemp: number
+    if (parsed < oldEffective) {
+      // Taking damage — temp absorbs first
+      ;[newHp, newTemp] = damageChar(char, oldEffective - parsed)
+    } else {
+      // Healing — goes to current HP only, capped at max
+      newHp = Math.min(char.max_hp, parsed)
+      newTemp = char.temp_hp
+    }
+    await applyHpChange(char, newHp, newTemp)
   }
 
   async function doRest(charId: string, opts: { spellSlots: boolean; specials: boolean; hp: boolean }) {
@@ -163,7 +184,7 @@ export default function CampaignPage() {
       ))
     }
     if (opts.hp) {
-      awaitables.push(supabase.from('characters').update({ current_hp: cd.char.max_hp }).eq('id', charId))
+      awaitables.push(supabase.from('characters').update({ current_hp: cd.char.max_hp, temp_hp: 0 }).eq('id', charId))
     }
 
     await Promise.all(awaitables)
@@ -172,7 +193,7 @@ export default function CampaignPage() {
       if (c.char.id !== charId) return c
       return {
         ...c,
-        char: opts.hp ? { ...c.char, current_hp: c.char.max_hp } : c.char,
+        char: opts.hp ? { ...c.char, current_hp: c.char.max_hp, temp_hp: 0 } : c.char,
         slots: opts.spellSlots ? c.slots.map(s => ({ ...s, used_slots: 0 })) : c.slots,
         specials: opts.specials ? c.specials.map(s => s.has_slots ? { ...s, used_slots: 0 } : s) : c.specials,
         restOpen: false,
@@ -286,14 +307,16 @@ export default function CampaignPage() {
               STR: char.str_score, DEX: char.dex_score, CON: char.con_score,
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
+            const effectiveHp = char.current_hp + char.temp_hp
             const hpPct = Math.max(0, Math.min(1, char.current_hp / char.max_hp))
-            const hpColor = (() => {
-              // Smooth green → amber → red interpolation
+            const effectivePct = Math.min(1, effectiveHp / char.max_hp)
+            const hasTemp = char.temp_hp > 0
+            const barColor = hasTemp ? '#3b82f6' : (() => {
               if (hpPct >= 0.5) {
-                const t = (hpPct - 0.5) / 0.5  // 1 = full, 0 = 50%
+                const t = (hpPct - 0.5) / 0.5
                 return `rgb(${Math.round(34 + (245 - 34) * (1 - t))},${Math.round(197 + (158 - 197) * (1 - t))},${Math.round(94 + (11 - 94) * (1 - t))})`
               } else {
-                const t = hpPct / 0.5  // 1 = 50%, 0 = dead
+                const t = hpPct / 0.5
                 return `rgb(${Math.round(245 + (239 - 245) * (1 - t))},${Math.round(158 + (68 - 158) * (1 - t))},${Math.round(11 + (68 - 11) * (1 - t))})`
               }
             })()
@@ -325,33 +348,25 @@ export default function CampaignPage() {
                     <div className="flex-1">
                       <div className="flex items-center justify-center gap-1 mb-1">
                         {hpEdit?.charId === char.id ? (
-                          <input autoFocus type="number" min={0} max={char.max_hp}
+                          <input autoFocus type="number" min={0}
                             value={hpEdit.value}
                             onChange={e => setHpEdit(prev => prev && { ...prev, value: e.target.value })}
                             onBlur={() => saveHp(char, hpEdit.value)}
                             onKeyDown={e => { if (e.key === 'Enter') saveHp(char, hpEdit.value); if (e.key === 'Escape') setHpEdit(null) }}
                             className="w-14 text-center font-bold text-sm rounded-lg outline-none"
-                            style={{ background: 'var(--surface-2)', color: hpColor, border: `1px solid ${hpColor}` }} />
+                            style={{ background: 'var(--surface-2)', color: barColor, border: `1px solid ${barColor}` }} />
                         ) : (
-                          <span className="font-bold cursor-pointer hover:underline decoration-dotted"
-                            title="Tap to edit"
-                            style={{ color: hpColor }}
-                            onClick={() => setHpEdit({ charId: char.id, value: String(char.current_hp) })}>
-                            {char.current_hp}
+                          <span className="font-bold cursor-pointer"
+                            style={{ color: barColor }}
+                            onClick={() => setHpEdit({ charId: char.id, value: String(effectiveHp) })}>
+                            {effectiveHp}
                           </span>
                         )}
                         <span style={{ color: 'var(--text-muted)' }}>/ {char.max_hp}</span>
-                        {char.temp_hp > 0 && (
-                          <span className="text-xs font-bold" style={{ color: '#60a5fa' }}>+{char.temp_hp}</span>
-                        )}
                       </div>
-                      <div className="h-3 rounded-full overflow-hidden flex" style={{ background: 'var(--surface-2)' }}>
-                        <div className="h-full transition-all duration-300"
-                          style={{ background: hpColor, width: `${hpPct * 100}%` }} />
-                        {char.temp_hp > 0 && (
-                          <div className="h-full transition-all duration-300"
-                            style={{ background: '#3b82f6', width: `${Math.min(char.temp_hp / char.max_hp, 1 - hpPct) * 100}%` }} />
-                        )}
+                      <div className="h-3 rounded-full" style={{ background: 'var(--surface-2)' }}>
+                        <div className="h-full rounded-full transition-all duration-300"
+                          style={{ background: barColor, width: `${effectivePct * 100}%` }} />
                       </div>
                     </div>
                     <button onClick={() => updateHp(char, 1)}
@@ -359,34 +374,19 @@ export default function CampaignPage() {
                       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
                   </div>
 
-                  {/* Temp HP */}
-                  <div className="mb-2">
-                    {tempEdit?.charId === char.id ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold" style={{ color: '#60a5fa' }}>TMP:</span>
-                        <input autoFocus type="number" min={0}
-                          value={tempEdit.value}
-                          onChange={e => setTempEdit(prev => prev && { ...prev, value: e.target.value })}
-                          onBlur={() => saveTemp(char, tempEdit.value)}
-                          onKeyDown={e => { if (e.key === 'Enter') saveTemp(char, tempEdit.value); if (e.key === 'Escape') setTempEdit(null) }}
-                          className="w-14 text-center text-xs rounded-lg outline-none font-bold"
-                          style={{ background: 'var(--surface-2)', color: '#60a5fa', border: '1px solid #3b82f6' }} />
-                        <button onClick={() => saveTemp(char, '0')}
-                          className="text-xs px-2 py-0.5 rounded-lg"
-                          style={{ color: 'var(--text-muted)', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                          Clear
-                        </button>
+                  {/* Temp HP row */}
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <button onClick={() => addTemp(char)}
+                      className="w-7 h-7 rounded-lg font-bold flex items-center justify-center text-sm shrink-0"
+                      style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: '#60a5fa' }}>+</button>
+                    {hasTemp ? (
+                      <div className="flex items-center gap-1 flex-1 px-2 py-1 rounded-lg"
+                        style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6' }}>
+                        <span className="text-xs font-bold flex-1" style={{ color: '#60a5fa' }}>🛡 {char.temp_hp} Temp HP</span>
+                        <button onClick={() => clearTemp(char)} className="text-xs font-bold" style={{ color: '#60a5fa' }}>×</button>
                       </div>
                     ) : (
-                      <button onClick={() => setTempEdit({ charId: char.id, value: char.temp_hp > 0 ? String(char.temp_hp) : '' })}
-                        className="w-full py-1 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
-                        style={{
-                          background: char.temp_hp > 0 ? 'rgba(59,130,246,0.15)' : 'var(--surface-2)',
-                          border: `1px solid ${char.temp_hp > 0 ? '#3b82f6' : 'var(--border)'}`,
-                          color: char.temp_hp > 0 ? '#60a5fa' : 'var(--text-muted)',
-                        }}>
-                        {char.temp_hp > 0 ? `🛡 ${char.temp_hp} Temp HP` : '+ Temp HP'}
-                      </button>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Temp HP</span>
                     )}
                   </div>
 
