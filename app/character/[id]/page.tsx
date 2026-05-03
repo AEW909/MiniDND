@@ -1,8 +1,16 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, ChevronDown, ChevronUp, GripVertical } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import {
+  DndContext, closestCenter, DragEndEvent,
+  PointerSensor, TouchSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   Character, CharacterSkill, CharacterAttack, CharacterSpell,
   CharacterSpellSlot, CharacterInventory, CharacterOther,
@@ -185,6 +193,40 @@ export default function CharacterPage() {
     setEditingOther(null)
   }
 
+  async function reorderAttacks(reordered: CharacterAttack[]) {
+    setAttacks(reordered)
+    await Promise.all(reordered.map((a, i) =>
+      supabase.from('character_attacks').update({ sort_order: i }).eq('id', a.id)
+    ))
+  }
+
+  async function reorderInventory(reordered: CharacterInventory[]) {
+    setInventory(reordered)
+    await Promise.all(reordered.map((item, i) =>
+      supabase.from('character_inventory').update({ sort_order: i }).eq('id', item.id)
+    ))
+  }
+
+  async function reorderOther(reordered: CharacterOther[]) {
+    setOther(reordered)
+    await Promise.all(reordered.map((item, i) =>
+      supabase.from('character_other').update({ sort_order: i }).eq('id', item.id)
+    ))
+  }
+
+  async function reorderSpells(levelSpells: CharacterSpell[]) {
+    const level = levelSpells[0]?.spell_level
+    if (level === undefined) return
+    setSpells(prev => [
+      ...prev.filter(s => s.spell_level < level),
+      ...levelSpells,
+      ...prev.filter(s => s.spell_level > level),
+    ])
+    await Promise.all(levelSpells.map((s, i) =>
+      supabase.from('character_spells').update({ sort_order: i }).eq('id', s.id)
+    ))
+  }
+
   if (loading || !char) return (
     <div className="flex items-center justify-center h-screen text-lg" style={{ color: 'var(--text-muted)' }}>
       Loading character…
@@ -255,21 +297,21 @@ export default function CharacterPage() {
           <SkillsTab skills={skills} scores={scores} prof={prof} onToggle={toggleSkill} />
         )}
         {tab === 'attacks' && (
-          <AttacksTab attacks={attacks} onAdd={() => setShowAddAttack(true)} onDelete={deleteAttack} onEdit={setEditingAttack} />
+          <AttacksTab attacks={attacks} onAdd={() => setShowAddAttack(true)} onDelete={deleteAttack} onEdit={setEditingAttack} onReorder={reorderAttacks} />
         )}
         {tab === 'spells' && (
           <SpellsTab
             spells={spells} slots={slots}
-            onAdd={() => setShowAddSpell(true)} onDelete={deleteSpell} onEdit={setEditingSpell}
+            onAdd={() => setShowAddSpell(true)} onDelete={deleteSpell} onEdit={setEditingSpell} onReorder={reorderSpells}
             onUseSlot={useSlot} onRestoreSlot={restoreSlot} onRestoreAll={restoreAllSlots}
             charClass={char.class} subclass={char.subclass} level={char.level}
           />
         )}
         {tab === 'inventory' && (
-          <InventoryTab inventory={inventory} onAdd={() => setShowAddInventory(true)} onUpdateQty={updateQty} onDelete={deleteInventory} />
+          <InventoryTab inventory={inventory} onAdd={() => setShowAddInventory(true)} onUpdateQty={updateQty} onDelete={deleteInventory} onReorder={reorderInventory} />
         )}
         {tab === 'other' && (
-          <OtherTab other={other} onAdd={() => setShowAddOther(true)} onDelete={deleteOther} onEdit={setEditingOther} />
+          <OtherTab other={other} onAdd={() => setShowAddOther(true)} onDelete={deleteOther} onEdit={setEditingOther} onReorder={reorderOther} />
         )}
       </div>
 
@@ -488,70 +530,126 @@ function SkillsTab({ skills, scores, prof, onToggle }: {
   )
 }
 
+// ─── Shared drag helpers ──────────────────────────────────────────────────────
+
+function useDndSensors() {
+  return useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+}
+
+function SortableRow({ id, children }: { id: string; children: (drag: React.HTMLAttributes<HTMLElement>) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      {children({ ...attributes, ...listeners })}
+    </div>
+  )
+}
+
 // ─── Attacks Tab ─────────────────────────────────────────────────────────────
 
-function AttacksTab({ attacks, onAdd, onDelete, onEdit }: {
+function AttacksTab({ attacks, onAdd, onDelete, onEdit, onReorder }: {
   attacks: CharacterAttack[]; onAdd: () => void
   onDelete: (a: CharacterAttack) => void; onEdit: (a: CharacterAttack) => void
+  onReorder: (r: CharacterAttack[]) => void
 }) {
+  const sensors = useDndSensors()
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (over && active.id !== over.id) {
+      const from = attacks.findIndex(a => a.id === active.id)
+      const to = attacks.findIndex(a => a.id === over.id)
+      onReorder(arrayMove(attacks, from, to))
+    }
+  }
   return (
     <div className="p-4 flex flex-col gap-3">
       <AddButton onClick={onAdd} label="Add Attack" />
       {attacks.length === 0 && <EmptyState emoji="⚔️" text="No attacks yet" />}
-      {attacks.map(atk => (
-        <div key={atk.id} onClick={() => onEdit(atk)}
-          className="rounded-2xl p-4 flex items-start gap-3 cursor-pointer hover:brightness-110 transition-all"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-            <span className="text-2xl">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
-            {atk.damage_type && (
-              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
-                style={{ background: getDamageColor(atk.damage_type) + '22', color: getDamageColor(atk.damage_type), border: `1px solid ${getDamageColor(atk.damage_type)}44` }}>
-                {getDamageLabel(atk.damage_type)}
-              </span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold">{atk.name}</p>
-            {atk.description && <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{atk.description}</p>}
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {atk.to_hit && (
-                <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
-                  style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
-                  {atk.to_hit} to hit
-                </span>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={attacks.map(a => a.id)} strategy={verticalListSortingStrategy}>
+          {attacks.map(atk => (
+            <SortableRow key={atk.id} id={atk.id}>
+              {drag => (
+                <div onClick={() => onEdit(atk)}
+                  className="rounded-2xl p-4 flex items-start gap-3 cursor-pointer hover:brightness-110 transition-all"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div {...drag} className="self-center cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                    onClick={e => e.stopPropagation()} style={{ color: 'var(--text-muted)' }}>
+                    <GripVertical size={16} />
+                  </div>
+                  <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+                    <span className="text-2xl">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
+                    {atk.damage_type && (
+                      <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                        style={{ background: getDamageColor(atk.damage_type) + '22', color: getDamageColor(atk.damage_type), border: `1px solid ${getDamageColor(atk.damage_type)}44` }}>
+                        {getDamageLabel(atk.damage_type)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold">{atk.name}</p>
+                    {atk.description && <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{atk.description}</p>}
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {atk.to_hit && (
+                        <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                          style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                          {atk.to_hit} to hit
+                        </span>
+                      )}
+                      {atk.notation && (
+                        <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                          style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
+                          {atk.notation}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={e => { e.stopPropagation(); onDelete(atk) }} className="p-1 rounded-lg shrink-0"
+                    style={{ color: 'var(--text-muted)' }}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               )}
-              {atk.notation && (
-                <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
-                  style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
-                  {atk.notation}
-                </span>
-              )}
-            </div>
-          </div>
-          <button onClick={e => { e.stopPropagation(); onDelete(atk) }} className="p-1 rounded-lg shrink-0"
-            style={{ color: 'var(--text-muted)' }}>
-            <Trash2 size={16} />
-          </button>
-        </div>
-      ))}
+            </SortableRow>
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }
 
 // ─── Spells Tab ───────────────────────────────────────────────────────────────
 
-function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onUseSlot, onRestoreSlot, onRestoreAll, charClass, subclass, level }: {
+function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onReorder, onUseSlot, onRestoreSlot, onRestoreAll, charClass, subclass, level }: {
   spells: CharacterSpell[]; slots: CharacterSpellSlot[]
   onAdd: () => void; onDelete: (s: CharacterSpell) => void; onEdit: (s: CharacterSpell) => void
+  onReorder: (levelSpells: CharacterSpell[]) => void
   onUseSlot: (s: CharacterSpellSlot) => void; onRestoreSlot: (s: CharacterSpellSlot) => void
   onRestoreAll: () => void
   charClass: string; subclass: string | null; level: number
 }) {
+  const sensors = useDndSensors()
   const byLevel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].reduce<Record<number, CharacterSpell[]>>((acc, l) => {
     acc[l] = spells.filter(s => s.spell_level === l)
     return acc
   }, {})
+  const firstNonEmpty = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].find(l => byLevel[l]?.length)
+  const [openLevel, setOpenLevel] = useState<number | null>(firstNonEmpty ?? null)
+
+  function toggleLevel(l: number) { setOpenLevel(prev => prev === l ? null : l) }
+
+  function handleDragEnd(l: number, e: DragEndEvent) {
+    const { active, over } = e
+    if (over && active.id !== over.id) {
+      const group = byLevel[l]
+      const from = group.findIndex(s => s.id === active.id)
+      const to = group.findIndex(s => s.id === over.id)
+      onReorder(arrayMove(group, from, to))
+    }
+  }
 
   return (
     <div className="p-4 flex flex-col gap-4">
@@ -599,53 +697,74 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onUseSlot, onRestor
         </div>
       )}
 
-      {/* Spells by level */}
+      {/* Spells by level — accordion */}
       {spells.length === 0 && <EmptyState emoji="✨" text="No spells yet" />}
       {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => {
         if (!byLevel[l]?.length) return null
+        const isOpen = openLevel === l
         return (
           <div key={l} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)' }}>
-            <div className="px-4 py-2" style={{ background: 'var(--surface)' }}>
+            <button onClick={() => toggleLevel(l)}
+              className="w-full flex items-center justify-between px-4 py-2.5"
+              style={{ background: 'var(--surface)' }}>
               <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
                 {l === 0 ? 'Cantrips' : `${slotLevelLabel(l)} Level`}
               </span>
-            </div>
-            {byLevel[l].map(spell => (
-              <div key={spell.id} onClick={() => onEdit(spell)}
-                className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:brightness-110 transition-all"
-                style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
-                <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
-                  <span className="text-xl">{getDamageEmoji(spell.damage_type) || '✨'}</span>
-                  {spell.damage_type && (
-                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
-                      style={{ background: getDamageColor(spell.damage_type) + '22', color: getDamageColor(spell.damage_type), border: `1px solid ${getDamageColor(spell.damage_type)}44` }}>
-                      {getDamageLabel(spell.damage_type)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-sm">{spell.name}</p>
-                  {spell.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {spell.to_hit && (
-                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
-                        style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
-                        {spell.to_hit} to hit
-                      </span>
-                    )}
-                    {spell.notation && (
-                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
-                        style={{ background: 'var(--surface)', color: 'var(--gold)' }}>
-                        {spell.notation}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button onClick={e => { e.stopPropagation(); onDelete(spell) }} className="p-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
-                  <Trash2 size={15} />
-                </button>
+              <div className="flex items-center gap-2">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{byLevel[l].length}</span>
+                {isOpen ? <ChevronUp size={15} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown size={15} style={{ color: 'var(--text-muted)' }} />}
               </div>
-            ))}
+            </button>
+            {isOpen && (
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={e => handleDragEnd(l, e)}>
+                <SortableContext items={byLevel[l].map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  {byLevel[l].map(spell => (
+                    <SortableRow key={spell.id} id={spell.id}>
+                      {drag => (
+                        <div onClick={() => onEdit(spell)}
+                          className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:brightness-110 transition-all"
+                          style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
+                          <div {...drag} className="self-center cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                            onClick={e => e.stopPropagation()} style={{ color: 'var(--text-muted)' }}>
+                            <GripVertical size={15} />
+                          </div>
+                          <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+                            <span className="text-xl">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                            {spell.damage_type && (
+                              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                                style={{ background: getDamageColor(spell.damage_type) + '22', color: getDamageColor(spell.damage_type), border: `1px solid ${getDamageColor(spell.damage_type)}44` }}>
+                                {getDamageLabel(spell.damage_type)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm">{spell.name}</p>
+                            {spell.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {spell.to_hit && (
+                                <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
+                                  style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                                  {spell.to_hit} to hit
+                                </span>
+                              )}
+                              {spell.notation && (
+                                <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-bold"
+                                  style={{ background: 'var(--surface)', color: 'var(--gold)' }}>
+                                  {spell.notation}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button onClick={e => { e.stopPropagation(); onDelete(spell) }} className="p-1 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
+                    </SortableRow>
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
           </div>
         )
       })}
@@ -655,91 +774,132 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onEdit, onUseSlot, onRestor
 
 // ─── Inventory Tab ────────────────────────────────────────────────────────────
 
-function InventoryTab({ inventory, onAdd, onUpdateQty, onDelete }: {
+function InventoryTab({ inventory, onAdd, onUpdateQty, onDelete, onReorder }: {
   inventory: CharacterInventory[]
   onAdd: () => void
   onUpdateQty: (item: CharacterInventory, delta: number) => void
   onDelete: (item: CharacterInventory) => void
+  onReorder: (r: CharacterInventory[]) => void
 }) {
+  const sensors = useDndSensors()
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (over && active.id !== over.id) {
+      const from = inventory.findIndex(i => i.id === active.id)
+      const to = inventory.findIndex(i => i.id === over.id)
+      onReorder(arrayMove(inventory, from, to))
+    }
+  }
   return (
     <div className="p-4 flex flex-col gap-3">
       <AddButton onClick={onAdd} label="Add Item" />
       {inventory.length === 0 && <EmptyState emoji="🎒" text="Inventory empty" />}
-      {inventory.map(item => (
-        <div key={item.id} className="rounded-2xl px-4 py-3 flex items-center gap-3"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <p className="flex-1 font-medium">{item.name}</p>
-          <div className="flex items-center gap-2">
-            <button onClick={() => onUpdateQty(item, -1)}
-              className="w-8 h-8 rounded-xl font-bold flex items-center justify-center"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>−</button>
-            <span className="w-8 text-center font-bold tabular-nums">{item.quantity}</span>
-            <button onClick={() => onUpdateQty(item, 1)}
-              className="w-8 h-8 rounded-xl font-bold flex items-center justify-center"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
-          </div>
-          <button onClick={() => onDelete(item)} className="p-1" style={{ color: 'var(--text-muted)' }}>
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={inventory.map(i => i.id)} strategy={verticalListSortingStrategy}>
+          {inventory.map(item => (
+            <SortableRow key={item.id} id={item.id}>
+              {drag => (
+                <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div {...drag} className="cursor-grab active:cursor-grabbing shrink-0 touch-none" style={{ color: 'var(--text-muted)' }}>
+                    <GripVertical size={16} />
+                  </div>
+                  <p className="flex-1 font-medium">{item.name}</p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => onUpdateQty(item, -1)}
+                      className="w-8 h-8 rounded-xl font-bold flex items-center justify-center"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>−</button>
+                    <span className="w-8 text-center font-bold tabular-nums">{item.quantity}</span>
+                    <button onClick={() => onUpdateQty(item, 1)}
+                      className="w-8 h-8 rounded-xl font-bold flex items-center justify-center"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
+                  </div>
+                  <button onClick={() => onDelete(item)} className="p-1" style={{ color: 'var(--text-muted)' }}>
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )}
+            </SortableRow>
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }
 
 // ─── Specials Tab ─────────────────────────────────────────────────────────────
 
-function OtherTab({ other, onAdd, onDelete, onEdit }: {
+function OtherTab({ other, onAdd, onDelete, onEdit, onReorder }: {
   other: CharacterOther[]; onAdd: () => void
   onDelete: (o: CharacterOther) => void; onEdit: (o: CharacterOther) => void
+  onReorder: (r: CharacterOther[]) => void
 }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const toggle = (id: string) => setExpanded(prev => {
-    const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s
-  })
+  const [openId, setOpenId] = useState<string | null>(null)
+  const toggle = (id: string) => setOpenId(prev => prev === id ? null : id)
+  const sensors = useDndSensors()
+  function handleDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (over && active.id !== over.id) {
+      const from = other.findIndex(o => o.id === active.id)
+      const to = other.findIndex(o => o.id === over.id)
+      onReorder(arrayMove(other, from, to))
+    }
+  }
   return (
     <div className="p-4 flex flex-col gap-3">
       <AddButton onClick={onAdd} label="Add Special" />
       {other.length === 0 && <EmptyState emoji="⚡" text="No specials yet" />}
-      {other.map(item => (
-        <div key={item.id} className="rounded-2xl overflow-hidden"
-          style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div onClick={() => toggle(item.id)}
-            className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
-            <span className="flex-1 text-left font-bold">{item.name}</span>
-            {item.to_hit && (
-              <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
-                style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
-                {item.to_hit} to hit
-              </span>
-            )}
-            {item.notation && (
-              <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
-                style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
-                {item.notation}
-              </span>
-            )}
-            {item.has_slots && (
-              <span className="text-xs px-2 py-0.5 rounded-lg font-semibold"
-                style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
-                {item.max_slots} slot{item.max_slots !== 1 ? 's' : ''}
-              </span>
-            )}
-            {expanded.has(item.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            <button onClick={e => { e.stopPropagation(); onEdit(item) }} className="p-1" style={{ color: 'var(--text-muted)' }} title="Edit">
-              ✏️
-            </button>
-            <button onClick={e => { e.stopPropagation(); onDelete(item) }} className="p-1 ml-1" style={{ color: 'var(--text-muted)' }}>
-              <Trash2 size={15} />
-            </button>
-          </div>
-          {expanded.has(item.id) && item.description && (
-            <div className="px-4 pb-3 text-sm" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-              {item.description}
-            </div>
-          )}
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={other.map(o => o.id)} strategy={verticalListSortingStrategy}>
+          {other.map(item => (
+            <SortableRow key={item.id} id={item.id}>
+              {drag => (
+                <div className="rounded-2xl overflow-hidden"
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <div onClick={() => toggle(item.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
+                    <div {...drag} className="cursor-grab active:cursor-grabbing shrink-0 touch-none"
+                      onClick={e => e.stopPropagation()} style={{ color: 'var(--text-muted)' }}>
+                      <GripVertical size={16} />
+                    </div>
+                    <span className="flex-1 text-left font-bold">{item.name}</span>
+                    {item.to_hit && (
+                      <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                        style={{ background: '#818cf822', color: '#818cf8', border: '1px solid #818cf844' }}>
+                        {item.to_hit} to hit
+                      </span>
+                    )}
+                    {item.notation && (
+                      <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
+                        style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
+                        {item.notation}
+                      </span>
+                    )}
+                    {item.has_slots && (
+                      <span className="text-xs px-2 py-0.5 rounded-lg font-semibold"
+                        style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
+                        {item.max_slots} slot{item.max_slots !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {openId === item.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <button onClick={e => { e.stopPropagation(); onEdit(item) }} className="p-1 text-sm" style={{ color: 'var(--text-muted)' }}>
+                      ✏️
+                    </button>
+                    <button onClick={e => { e.stopPropagation(); onDelete(item) }} className="p-1" style={{ color: 'var(--text-muted)' }}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                  {openId === item.id && item.description && (
+                    <div className="px-4 pb-3 text-sm" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                      {item.description}
+                    </div>
+                  )}
+                </div>
+              )}
+            </SortableRow>
+          ))}
+        </SortableContext>
+      </DndContext>
     </div>
   )
 }
