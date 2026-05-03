@@ -16,6 +16,7 @@ export interface Character {
   speed: number
   max_hp: number
   current_hp: number
+  temp_hp: number
   str_score: number
   dex_score: number
   con_score: number
