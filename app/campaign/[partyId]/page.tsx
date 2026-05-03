@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
-  getAvatarEmoji, getDamageEmoji, abilityModifier, proficiencyBonus, formatModifier,
+  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { slotLevelLabel } from '@/lib/spell-slots'
 
@@ -293,14 +293,14 @@ export default function CampaignPage() {
           <ArrowLeft size={22} />
         </button>
         <span className="text-xl">⚔️</span>
-        <h1 className="text-lg font-bold" style={{ color: 'var(--gold)' }}>{partyName} — Campaign View</h1>
+        <h1 className="font-display text-lg font-bold" style={{ color: 'var(--gold)' }}>{partyName} — Campaign View</h1>
         <span className="text-xs ml-auto px-2 py-1 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--success)' }}>
           ● Live
         </span>
       </header>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full" style={{ minWidth: `${charData.length * 280}px` }}>
+        <div className="flex h-full" style={{ minWidth: `${charData.length * 300}px` }}>
           {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen }) => {
             const prof = proficiencyBonus(char.level)
             const scores: Record<string, number> = {
@@ -324,7 +324,7 @@ export default function CampaignPage() {
 
             return (
               <div key={char.id} className="flex flex-col border-r overflow-y-auto"
-                style={{ width: '280px', minWidth: '280px', borderColor: 'var(--border)', background: 'var(--background)' }}>
+                style={{ width: '300px', minWidth: '300px', borderColor: 'var(--border)', background: 'var(--background)' }}>
 
                 {/* Character header */}
                 <div className="sticky top-0 z-10 p-4" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
@@ -332,7 +332,7 @@ export default function CampaignPage() {
                     <span className="text-4xl">{getAvatarEmoji(char.avatar_key)}</span>
                     <div className="flex-1 min-w-0">
                       <button onClick={() => router.push(`/character/${char.id}`)}
-                        className="font-bold text-base truncate block hover:underline text-left w-full">
+                        className="font-display font-bold text-base truncate block hover:underline text-left w-full">
                         {char.name}
                       </button>
                       <p className="text-xs" style={{ color: 'var(--gold)' }}>
@@ -441,7 +441,14 @@ export default function CampaignPage() {
                       : attacks.map(atk => (
                         <div key={atk.id} className="flex items-center gap-2 px-4 py-2"
                           style={{ borderTop: '1px solid var(--border)' }}>
-                          <span className="text-base">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
+                          <div className="flex flex-col items-center gap-0.5 shrink-0">
+                            <span className="text-base">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
+                            {atk.damage_type && (
+                              <span className="text-xs px-1 rounded" style={{ background: getDamageColor(atk.damage_type) + '33', color: getDamageColor(atk.damage_type), fontSize: '9px' }}>
+                                {getDamageLabel(atk.damage_type)}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold truncate">{atk.name}</p>
                             {atk.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{atk.notation}</p>}
@@ -488,7 +495,14 @@ export default function CampaignPage() {
                         {spells.slice(0, 5).map(spell => (
                           <div key={spell.id} className="flex items-center gap-2 px-4 py-1.5"
                             style={{ borderTop: '1px solid var(--border)' }}>
-                            <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                            <div className="flex flex-col items-center gap-0.5 shrink-0">
+                              <span className="text-sm">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                              {spell.damage_type && (
+                                <span style={{ background: getDamageColor(spell.damage_type) + '33', color: getDamageColor(spell.damage_type), fontSize: '9px', padding: '0 3px', borderRadius: '3px' }}>
+                                  {getDamageLabel(spell.damage_type)}
+                                </span>
+                              )}
+                            </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate">{spell.name}</p>
                               {spell.notation && <p className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{spell.notation}</p>}

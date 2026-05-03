@@ -91,20 +91,20 @@ export const CLASSES: Record<string, string[]> = {
 export const CLASS_NAMES = Object.keys(CLASSES)
 
 export const DAMAGE_TYPES = [
-  { key: 'slashing', label: 'Slashing', emoji: '⚔️' },
-  { key: 'piercing', label: 'Piercing', emoji: '🗡️' },
-  { key: 'bludgeoning', label: 'Bludgeoning', emoji: '🔨' },
-  { key: 'fire', label: 'Fire', emoji: '🔥' },
-  { key: 'cold', label: 'Cold', emoji: '❄️' },
-  { key: 'lightning', label: 'Lightning', emoji: '⚡' },
-  { key: 'thunder', label: 'Thunder', emoji: '💥' },
-  { key: 'acid', label: 'Acid', emoji: '🧪' },
-  { key: 'poison', label: 'Poison', emoji: '☠️' },
-  { key: 'radiant', label: 'Radiant', emoji: '✨' },
-  { key: 'necrotic', label: 'Necrotic', emoji: '💀' },
-  { key: 'psychic', label: 'Psychic', emoji: '🔮' },
-  { key: 'force', label: 'Force', emoji: '💫' },
-  { key: 'healing', label: 'Healing', emoji: '💚' },
+  { key: 'slashing',    label: 'Slashing',    emoji: '⚔️',  color: '#a8836a' },
+  { key: 'piercing',    label: 'Piercing',    emoji: '🗡️',  color: '#9aa3b0' },
+  { key: 'bludgeoning', label: 'Bludgeoning', emoji: '🔨',  color: '#8a7560' },
+  { key: 'fire',        label: 'Fire',        emoji: '🔥',  color: '#e8612c' },
+  { key: 'cold',        label: 'Cold',        emoji: '❄️',  color: '#6ab0d4' },
+  { key: 'lightning',   label: 'Lightning',   emoji: '⚡',  color: '#e8c832' },
+  { key: 'thunder',     label: 'Thunder',     emoji: '💥',  color: '#a078c8' },
+  { key: 'acid',        label: 'Acid',        emoji: '🧪',  color: '#78c840' },
+  { key: 'poison',      label: 'Poison',      emoji: '☠️',  color: '#609050' },
+  { key: 'radiant',     label: 'Radiant',     emoji: '✨',  color: '#e8d060' },
+  { key: 'necrotic',    label: 'Necrotic',    emoji: '💀',  color: '#7858a0' },
+  { key: 'psychic',     label: 'Psychic',     emoji: '🔮',  color: '#c060c0' },
+  { key: 'force',       label: 'Force',       emoji: '💫',  color: '#6080e0' },
+  { key: 'healing',     label: 'Healing',     emoji: '💚',  color: '#40b870' },
 ]
 
 export const AVATARS = [
@@ -133,6 +133,16 @@ export function getAvatarEmoji(key: string): string {
 export function getDamageEmoji(type: string | null | undefined): string {
   if (!type) return ''
   return DAMAGE_TYPES.find(d => d.key === type)?.emoji ?? ''
+}
+
+export function getDamageColor(type: string | null | undefined): string {
+  if (!type) return '#888'
+  return DAMAGE_TYPES.find(d => d.key === type)?.color ?? '#888'
+}
+
+export function getDamageLabel(type: string | null | undefined): string {
+  if (!type) return ''
+  return DAMAGE_TYPES.find(d => d.key === type)?.label ?? ''
 }
 
 export function abilityModifier(score: number): number {

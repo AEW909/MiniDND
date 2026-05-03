@@ -96,7 +96,7 @@ export default function PartiesPage() {
         <div className="flex items-center gap-3">
           <span className="text-4xl">🐉</span>
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--gold)' }}>MiniDnD</h1>
+            <h1 className="font-display text-2xl font-bold" style={{ color: 'var(--gold)' }}>MiniDnD</h1>
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Choose your party</p>
           </div>
         </div>
@@ -126,8 +126,9 @@ export default function PartiesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {parties.map(party => (
               <button key={party.id} onClick={() => { forceRender(n => n + 1); attemptEnter(party) }}
-                className="relative text-left rounded-2xl p-6 transition-all duration-150 hover:scale-105 active:scale-100 group cursor-pointer"
+                className="relative text-left rounded-2xl p-6 transition-all duration-150 hover:scale-105 active:scale-100 group cursor-pointer overflow-hidden"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: unlocked[party.id] ? 'var(--gold)' : 'var(--border)' }} />
                 <div className="flex items-start justify-between mb-3">
                   <span className="text-5xl">{unlocked[party.id] ? '🛡️' : '🔒'}</span>
                   {unlocked[party.id] && (
@@ -138,7 +139,7 @@ export default function PartiesPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="text-xl font-bold mb-1">{party.name}</h2>
+                <h2 className="font-display text-xl font-bold mb-1">{party.name}</h2>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   {unlocked[party.id] ? 'Tap to enter' : 'PIN required'}
                 </p>

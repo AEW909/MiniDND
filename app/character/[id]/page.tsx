@@ -9,7 +9,7 @@ import {
 } from '@/lib/types'
 import {
   CLASSES, AVATARS, DAMAGE_TYPES, ABILITY_LABELS,
-  getAvatarEmoji, getDamageEmoji, abilityModifier, proficiencyBonus, formatModifier,
+  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { getSpellSlots, isCasterClass, slotLevelLabel } from '@/lib/spell-slots'
 import Modal from '@/components/Modal'
@@ -185,7 +185,7 @@ export default function CharacterPage() {
         <div className="text-4xl">{getAvatarEmoji(char.avatar_key)}</div>
 
         <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-lg leading-tight truncate">{char.name}</h1>
+          <h1 className="font-display font-bold text-lg leading-tight truncate">{char.name}</h1>
           <p className="text-xs" style={{ color: 'var(--gold)' }}>
             {char.class}{char.subclass ? ` · ${char.subclass}` : ''} · Lv {char.level}
           </p>
@@ -461,7 +461,15 @@ function AttacksTab({ attacks, onAdd, onDelete }: {
       {attacks.map(atk => (
         <div key={atk.id} className="rounded-2xl p-4 flex items-start gap-3"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <div className="text-2xl">{getDamageEmoji(atk.damage_type) || '⚔️'}</div>
+          <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+            <span className="text-2xl">{getDamageEmoji(atk.damage_type) || '⚔️'}</span>
+            {atk.damage_type && (
+              <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                style={{ background: getDamageColor(atk.damage_type) + '22', color: getDamageColor(atk.damage_type), border: `1px solid ${getDamageColor(atk.damage_type)}44` }}>
+                {getDamageLabel(atk.damage_type)}
+              </span>
+            )}
+          </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold">{atk.name}</p>
             {atk.description && <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{atk.description}</p>}
@@ -556,7 +564,15 @@ function SpellsTab({ spells, slots, onAdd, onDelete, onUseSlot, onRestoreSlot, o
             {byLevel[l].map(spell => (
               <div key={spell.id} className="flex items-start gap-3 px-4 py-3"
                 style={{ background: 'var(--surface-2)', borderTop: '1px solid var(--border)' }}>
-                <div className="text-xl">{getDamageEmoji(spell.damage_type) || '✨'}</div>
+                <div className="flex flex-col items-center gap-1 shrink-0 pt-0.5">
+                  <span className="text-xl">{getDamageEmoji(spell.damage_type) || '✨'}</span>
+                  {spell.damage_type && (
+                    <span className="text-xs font-semibold px-1.5 py-0.5 rounded-md"
+                      style={{ background: getDamageColor(spell.damage_type) + '22', color: getDamageColor(spell.damage_type), border: `1px solid ${getDamageColor(spell.damage_type)}44` }}>
+                      {getDamageLabel(spell.damage_type)}
+                    </span>
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-sm">{spell.name}</p>
                   {spell.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{spell.description}</p>}
