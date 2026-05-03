@@ -266,7 +266,16 @@ export default function CampaignPage() {
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
             const hpPct = Math.max(0, Math.min(1, char.current_hp / char.max_hp))
-            const hpColor = hpPct > 0.5 ? 'var(--success)' : hpPct > 0.25 ? '#f59e0b' : 'var(--danger)'
+            const hpColor = (() => {
+              // Smooth green → amber → red interpolation
+              if (hpPct >= 0.5) {
+                const t = (hpPct - 0.5) / 0.5  // 1 = full, 0 = 50%
+                return `rgb(${Math.round(34 + (245 - 34) * (1 - t))},${Math.round(197 + (158 - 197) * (1 - t))},${Math.round(94 + (11 - 94) * (1 - t))})`
+              } else {
+                const t = hpPct / 0.5  // 1 = 50%, 0 = dead
+                return `rgb(${Math.round(245 + (239 - 245) * (1 - t))},${Math.round(158 + (68 - 158) * (1 - t))},${Math.round(11 + (68 - 11) * (1 - t))})`
+              }
+            })()
 
             return (
               <div key={char.id} className="flex flex-col border-r overflow-y-auto"
@@ -297,8 +306,8 @@ export default function CampaignPage() {
                         <span className="font-bold" style={{ color: hpColor }}>{char.current_hp}</span>
                         <span style={{ color: 'var(--text-muted)' }}>/ {char.max_hp}</span>
                       </div>
-                      <div className="h-2 rounded-full" style={{ background: 'var(--surface-2)' }}>
-                        <div className="h-full rounded-full transition-all" style={{ background: hpColor, width: `${hpPct * 100}%` }} />
+                      <div className="h-3 rounded-full" style={{ background: 'var(--surface-2)' }}>
+                        <div className="h-full rounded-full transition-all duration-300" style={{ background: hpColor, width: `${hpPct * 100}%` }} />
                       </div>
                     </div>
                     <button onClick={() => updateHp(char, 1)}
