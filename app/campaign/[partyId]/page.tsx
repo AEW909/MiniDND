@@ -101,10 +101,29 @@ export default function CampaignPage() {
 
   async function updateHp(char: Character, delta: number) {
     const newHp = Math.max(0, Math.min(char.current_hp + delta, char.max_hp))
-    await supabase.from('characters').update({ current_hp: newHp }).eq('id', char.id)
+    // Optimistic update first so the bar moves immediately
     setCharData(prev => prev.map(cd =>
       cd.char.id === char.id ? { ...cd, char: { ...cd.char, current_hp: newHp } } : cd
     ))
+    await supabase.from('characters').update({ current_hp: newHp }).eq('id', char.id)
+  }
+
+  async function longRest(charId: string, charSlots: CharacterSpellSlot[]) {
+    if (!charSlots.length) return
+    await Promise.all(charSlots.map(s =>
+      supabase.from('character_spell_slots').update({ used_slots: 0 }).eq('id', s.id)
+    ))
+    setCharData(prev => prev.map(cd =>
+      cd.char.id === charId
+        ? { ...cd, slots: cd.slots.map(s => ({ ...s, used_slots: 0 })) }
+        : cd
+    ))
+  }
+
+  async function shortRest(charId: string, charSlots: CharacterSpellSlot[]) {
+    // Short rest: restore Warlock pact slots only (other casters need long rest)
+    // For simplicity, restore all slots — DM decides when to press
+    await longRest(charId, charSlots)
   }
 
   async function updateQty(charId: string, item: CharacterInventory, delta: number) {
@@ -217,7 +236,7 @@ export default function CampaignPage() {
                       style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
                   </div>
 
-                  <div className="flex gap-2 text-xs text-center">
+                  <div className="flex gap-2 text-xs text-center mb-2">
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Prof </span>
                       <span className="font-bold" style={{ color: 'var(--gold)' }}>+{prof}</span>
@@ -226,6 +245,22 @@ export default function CampaignPage() {
                       <span style={{ color: 'var(--text-muted)' }}>Speed </span>
                       <span className="font-bold">{char.speed}ft</span>
                     </div>
+                  </div>
+
+                  {/* Rest buttons */}
+                  <div className="flex gap-1.5 text-xs">
+                    <button onClick={() => shortRest(char.id, slots)}
+                      className="flex-1 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                      title="Short Rest — restores spell slots">
+                      💤 Short Rest
+                    </button>
+                    <button onClick={() => longRest(char.id, slots)}
+                      className="flex-1 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--gold)', color: 'var(--gold)' }}
+                      title="Long Rest — restores all spell slots">
+                      🌙 Long Rest
+                    </button>
                   </div>
                 </div>
 

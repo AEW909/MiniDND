@@ -629,7 +629,8 @@ function OtherTab({ other, onAdd, onDelete }: {
       {other.map(item => (
         <div key={item.id} className="rounded-2xl overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-          <button onClick={() => toggle(item.id)} className="w-full flex items-center gap-3 px-4 py-3">
+          <div onClick={() => toggle(item.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 cursor-pointer select-none">
             <span className="flex-1 text-left font-bold">{item.name}</span>
             {item.notation && (
               <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
@@ -641,7 +642,7 @@ function OtherTab({ other, onAdd, onDelete }: {
             <button onClick={e => { e.stopPropagation(); onDelete(item) }} className="p-1 ml-1" style={{ color: 'var(--text-muted)' }}>
               <Trash2 size={15} />
             </button>
-          </button>
+          </div>
           {expanded.has(item.id) && item.description && (
             <div className="px-4 pb-3 text-sm" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
               {item.description}
