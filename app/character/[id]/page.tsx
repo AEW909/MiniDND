@@ -22,7 +22,7 @@ const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: 'attacks', label: 'Attacks', emoji: '⚔️' },
   { id: 'spells', label: 'Spells', emoji: '✨' },
   { id: 'inventory', label: 'Inventory', emoji: '🎒' },
-  { id: 'other', label: 'Other', emoji: '📜' },
+  { id: 'other', label: 'Specials', emoji: '⚡' },
 ]
 
 const ABILITY_KEYS = [
@@ -613,7 +613,7 @@ function InventoryTab({ inventory, onAdd, onUpdateQty, onDelete }: {
   )
 }
 
-// ─── Other Tab ────────────────────────────────────────────────────────────────
+// ─── Specials Tab ─────────────────────────────────────────────────────────────
 
 function OtherTab({ other, onAdd, onDelete }: {
   other: CharacterOther[]; onAdd: () => void; onDelete: (o: CharacterOther) => void
@@ -624,8 +624,8 @@ function OtherTab({ other, onAdd, onDelete }: {
   })
   return (
     <div className="p-4 flex flex-col gap-3">
-      <AddButton onClick={onAdd} label="Add Feature" />
-      {other.length === 0 && <EmptyState emoji="📜" text="No features yet" />}
+      <AddButton onClick={onAdd} label="Add Special" />
+      {other.length === 0 && <EmptyState emoji="⚡" text="No specials yet" />}
       {other.map(item => (
         <div key={item.id} className="rounded-2xl overflow-hidden"
           style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
@@ -636,6 +636,12 @@ function OtherTab({ other, onAdd, onDelete }: {
               <span className="px-2 py-0.5 rounded-lg text-sm font-mono font-bold"
                 style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
                 {item.notation}
+              </span>
+            )}
+            {item.has_slots && (
+              <span className="text-xs px-2 py-0.5 rounded-lg font-semibold"
+                style={{ background: 'var(--surface-2)', color: 'var(--gold)' }}>
+                {item.max_slots} slot{item.max_slots !== 1 ? 's' : ''}
               </span>
             )}
             {expanded.has(item.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -723,15 +729,41 @@ function AddInventoryModal({ onClose, onSave }: { onClose: () => void; onSave: (
 
 function AddOtherModal({ onClose, onSave }: { onClose: () => void; onSave: (d: object) => void }) {
   const [name, setName] = useState(''); const [desc, setDesc] = useState(''); const [notation, setNotation] = useState('')
+  const [hasSlots, setHasSlots] = useState(false); const [maxSlots, setMaxSlots] = useState(1)
   return (
-    <Modal title="Add Feature / Trait" onClose={onClose}>
+    <Modal title="Add Special" onClose={onClose}>
       <div className="flex flex-col gap-4">
-        <Field label="Name"><input autoFocus type="text" placeholder="Sneak Attack" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
-        <Field label="Description"><input type="text" placeholder="Once per turn, deal extra damage when…" value={desc} onChange={e => setDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
-        <Field label="Dice notation (optional)"><input type="text" placeholder="2d6" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
-        <button onClick={() => onSave({ name, description: desc, notation: notation || null })}
+        <Field label="Name"><input autoFocus type="text" placeholder="Second Wind" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
+        <Field label="Description"><input type="text" placeholder="Regain HP as a bonus action…" value={desc} onChange={e => setDesc(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none" style={inputStyle} /></Field>
+        <Field label="Dice notation (optional)"><input type="text" placeholder="1d10+5" value={notation} onChange={e => setNotation(e.target.value)} className="w-full px-4 py-3 rounded-xl outline-none font-mono" style={inputStyle} /></Field>
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          <div>
+            <p className="text-sm font-semibold">Trackable uses</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>e.g. Second Wind, Action Surge</p>
+          </div>
+          <button onClick={() => setHasSlots(v => !v)}
+            className="w-10 h-6 rounded-full transition-colors relative"
+            style={{ background: hasSlots ? 'var(--gold)' : 'var(--surface)', border: '1px solid var(--border)' }}>
+            <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all"
+              style={{ left: hasSlots ? '18px' : '2px' }} />
+          </button>
+        </div>
+        {hasSlots && (
+          <Field label="Number of uses">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setMaxSlots(v => Math.max(1, v - 1))}
+                className="w-10 h-10 rounded-xl font-bold text-lg flex items-center justify-center"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>−</button>
+              <span className="flex-1 text-center text-2xl font-bold">{maxSlots}</span>
+              <button onClick={() => setMaxSlots(v => Math.min(10, v + 1))}
+                className="w-10 h-10 rounded-xl font-bold text-lg flex items-center justify-center"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>+</button>
+            </div>
+          </Field>
+        )}
+        <button onClick={() => onSave({ name, description: desc, notation: notation || null, has_slots: hasSlots, max_slots: hasSlots ? maxSlots : 1, used_slots: 0 })}
           disabled={!name.trim()} className="w-full py-3 rounded-xl font-bold disabled:opacity-50" style={{ background: 'var(--gold)', color: '#1c1917' }}>
-          Add Feature
+          Add Special
         </button>
       </div>
     </Modal>

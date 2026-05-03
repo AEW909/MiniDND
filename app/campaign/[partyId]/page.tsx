@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory } from '@/lib/types'
+import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
   getAvatarEmoji, getDamageEmoji, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { slotLevelLabel } from '@/lib/spell-slots'
 
-type Section = 'skills' | 'attacks' | 'spells' | 'inventory'
+type Section = 'skills' | 'attacks' | 'spells' | 'inventory' | 'specials'
 
 interface CharData {
   char: Character
@@ -18,7 +18,9 @@ interface CharData {
   spells: CharacterSpell[]
   slots: CharacterSpellSlot[]
   inventory: CharacterInventory[]
+  specials: CharacterOther[]
   expanded: Set<Section>
+  restOpen: boolean
 }
 
 export default function CampaignPage() {
@@ -43,6 +45,9 @@ export default function CampaignPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'character_spell_slots' }, () => {
         loadSlots()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'character_other' }, () => {
+        loadSpecials()
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -58,13 +63,14 @@ export default function CampaignPage() {
 
     const ids = chars.map(c => c.id)
     const [
-      { data: skills }, { data: attacks }, { data: spells }, { data: slots }, { data: inv }
+      { data: skills }, { data: attacks }, { data: spells }, { data: slots }, { data: inv }, { data: specials }
     ] = await Promise.all([
       supabase.from('character_skills').select('*').in('character_id', ids),
       supabase.from('character_attacks').select('*').in('character_id', ids).order('sort_order'),
       supabase.from('character_spells').select('*').in('character_id', ids).order('spell_level'),
       supabase.from('character_spell_slots').select('*').in('character_id', ids).order('slot_level'),
       supabase.from('character_inventory').select('*').in('character_id', ids).order('sort_order'),
+      supabase.from('character_other').select('*').in('character_id', ids).order('sort_order'),
     ])
 
     setCharData(chars.map(char => ({
@@ -74,7 +80,9 @@ export default function CampaignPage() {
       spells: (spells ?? []).filter(s => s.character_id === char.id),
       slots: (slots ?? []).filter(s => s.character_id === char.id),
       inventory: (inv ?? []).filter(i => i.character_id === char.id),
+      specials: (specials ?? []).filter(s => s.character_id === char.id),
       expanded: new Set(),
+      restOpen: false,
     })))
     setLoading(false)
   }
@@ -99,6 +107,16 @@ export default function CampaignPage() {
     })))
   }
 
+  async function loadSpecials() {
+    const ids = charData.map(cd => cd.char.id)
+    if (!ids.length) return
+    const { data } = await supabase.from('character_other').select('*').in('character_id', ids).order('sort_order')
+    setCharData(prev => prev.map(cd => ({
+      ...cd,
+      specials: (data ?? []).filter(s => s.character_id === cd.char.id),
+    })))
+  }
+
   async function updateHp(char: Character, delta: number) {
     const newHp = Math.max(0, Math.min(char.current_hp + delta, char.max_hp))
     // Optimistic update first so the bar moves immediately
@@ -108,22 +126,65 @@ export default function CampaignPage() {
     await supabase.from('characters').update({ current_hp: newHp }).eq('id', char.id)
   }
 
-  async function longRest(charId: string, charSlots: CharacterSpellSlot[]) {
-    if (!charSlots.length) return
-    await Promise.all(charSlots.map(s =>
-      supabase.from('character_spell_slots').update({ used_slots: 0 }).eq('id', s.id)
-    ))
+  async function doRest(charId: string, opts: { spellSlots: boolean; specials: boolean; hp: boolean }) {
+    const cd = charData.find(c => c.char.id === charId)
+    if (!cd) return
+    const awaitables: PromiseLike<unknown>[] = []
+
+    if (opts.spellSlots && cd.slots.length) {
+      awaitables.push(...cd.slots.map(s =>
+        supabase.from('character_spell_slots').update({ used_slots: 0 }).eq('id', s.id)
+      ))
+    }
+    if (opts.specials) {
+      awaitables.push(...cd.specials.filter(s => s.has_slots).map(s =>
+        supabase.from('character_other').update({ used_slots: 0 }).eq('id', s.id)
+      ))
+    }
+    if (opts.hp) {
+      awaitables.push(supabase.from('characters').update({ current_hp: cd.char.max_hp }).eq('id', charId))
+    }
+
+    await Promise.all(awaitables)
+
+    setCharData(prev => prev.map(c => {
+      if (c.char.id !== charId) return c
+      return {
+        ...c,
+        char: opts.hp ? { ...c.char, current_hp: c.char.max_hp } : c.char,
+        slots: opts.spellSlots ? c.slots.map(s => ({ ...s, used_slots: 0 })) : c.slots,
+        specials: opts.specials ? c.specials.map(s => s.has_slots ? { ...s, used_slots: 0 } : s) : c.specials,
+        restOpen: false,
+      }
+    }))
+  }
+
+  async function useSpecial(charId: string, item: CharacterOther) {
+    if (item.used_slots >= item.max_slots) return
+    const used = item.used_slots + 1
+    await supabase.from('character_other').update({ used_slots: used }).eq('id', item.id)
     setCharData(prev => prev.map(cd =>
       cd.char.id === charId
-        ? { ...cd, slots: cd.slots.map(s => ({ ...s, used_slots: 0 })) }
+        ? { ...cd, specials: cd.specials.map(s => s.id === item.id ? { ...s, used_slots: used } : s) }
         : cd
     ))
   }
 
-  async function shortRest(charId: string, charSlots: CharacterSpellSlot[]) {
-    // Short rest: restore Warlock pact slots only (other casters need long rest)
-    // For simplicity, restore all slots — DM decides when to press
-    await longRest(charId, charSlots)
+  async function restoreSpecial(charId: string, item: CharacterOther) {
+    if (item.used_slots <= 0) return
+    const used = item.used_slots - 1
+    await supabase.from('character_other').update({ used_slots: used }).eq('id', item.id)
+    setCharData(prev => prev.map(cd =>
+      cd.char.id === charId
+        ? { ...cd, specials: cd.specials.map(s => s.id === item.id ? { ...s, used_slots: used } : s) }
+        : cd
+    ))
+  }
+
+  function toggleRestOpen(charId: string) {
+    setCharData(prev => prev.map(cd =>
+      cd.char.id === charId ? { ...cd, restOpen: !cd.restOpen } : cd
+    ))
   }
 
   async function updateQty(charId: string, item: CharacterInventory, delta: number) {
@@ -198,7 +259,7 @@ export default function CampaignPage() {
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full" style={{ minWidth: `${charData.length * 280}px` }}>
-          {charData.map(({ char, skills, attacks, spells, slots, inventory, expanded }) => {
+          {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen }) => {
             const prof = proficiencyBonus(char.level)
             const scores: Record<string, number> = {
               STR: char.str_score, DEX: char.dex_score, CON: char.con_score,
@@ -256,21 +317,12 @@ export default function CampaignPage() {
                     </div>
                   </div>
 
-                  {/* Rest buttons */}
-                  <div className="flex gap-1.5 text-xs">
-                    <button onClick={() => shortRest(char.id, slots)}
-                      className="flex-1 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
-                      title="Short Rest — restores spell slots">
-                      💤 Short Rest
-                    </button>
-                    <button onClick={() => longRest(char.id, slots)}
-                      className="flex-1 py-1.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
-                      style={{ background: 'var(--surface-2)', border: '1px solid var(--gold)', color: 'var(--gold)' }}
-                      title="Long Rest — restores all spell slots">
-                      🌙 Long Rest
-                    </button>
-                  </div>
+                  {/* Rest button */}
+                  <RestPanel charId={char.id} open={restOpen}
+                    onToggle={() => toggleRestOpen(char.id)}
+                    hasSlots={slots.length > 0}
+                    hasSpecials={specials.some(s => s.has_slots)}
+                    onRest={opts => doRest(char.id, opts)} />
                 </div>
 
                 {/* Expandable sections */}
@@ -359,6 +411,39 @@ export default function CampaignPage() {
                     }
                   </Section>
 
+                  {/* Specials */}
+                  <Section label="Specials ⚡" isOpen={expanded.has('specials')} onToggle={() => toggleSection(char.id, 'specials')}>
+                    {specials.length === 0
+                      ? <p className="px-4 py-3 text-xs" style={{ color: 'var(--text-muted)' }}>No specials</p>
+                      : specials.map(item => (
+                        <div key={item.id} className="flex flex-col px-4 py-2 gap-1.5"
+                          style={{ borderTop: '1px solid var(--border)' }}>
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1 text-xs font-semibold truncate">{item.name}</span>
+                            {item.notation && <span className="text-xs font-mono" style={{ color: 'var(--gold)' }}>{item.notation}</span>}
+                          </div>
+                          {item.description && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{item.description}</p>}
+                          {item.has_slots && (
+                            <div className="flex gap-1 flex-wrap">
+                              {Array.from({ length: item.max_slots }).map((_, i) => {
+                                const used = i >= (item.max_slots - item.used_slots)
+                                return (
+                                  <button key={i}
+                                    onClick={() => used ? restoreSpecial(char.id, item) : useSpecial(char.id, item)}
+                                    className="w-5 h-5 rounded-full transition-all"
+                                    style={{
+                                      background: used ? 'var(--surface-2)' : 'var(--gold)',
+                                      border: `1.5px solid ${used ? 'var(--border)' : 'var(--gold)'}`,
+                                    }} />
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    }
+                  </Section>
+
                   {/* Inventory */}
                   <Section label="Inventory 🎒" isOpen={expanded.has('inventory')} onToggle={() => toggleSection(char.id, 'inventory')}>
                     {inventory.length === 0
@@ -386,6 +471,48 @@ export default function CampaignPage() {
           })}
         </div>
       </div>
+    </div>
+  )
+}
+
+function RestPanel({ charId, open, onToggle, hasSlots, hasSpecials, onRest }: {
+  charId: string; open: boolean; onToggle: () => void
+  hasSlots: boolean; hasSpecials: boolean
+  onRest: (opts: { spellSlots: boolean; specials: boolean; hp: boolean }) => void
+}) {
+  const [spellSlots, setSpellSlots] = useState(hasSlots)
+  const [specials, setSpecials] = useState(hasSpecials)
+  const [hp, setHp] = useState(false)
+
+  return (
+    <div>
+      <button onClick={onToggle}
+        className="w-full py-1.5 rounded-lg font-semibold text-xs transition-opacity hover:opacity-80"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+        🛌 Rest
+      </button>
+      {open && (
+        <div className="mt-1.5 rounded-lg p-3 flex flex-col gap-2"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+          <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>Reset on rest:</p>
+          {[
+            { label: 'Spell Slots', value: spellSlots, set: setSpellSlots, show: hasSlots },
+            { label: 'Specials', value: specials, set: setSpecials, show: hasSpecials },
+            { label: 'HP to max', value: hp, set: setHp, show: true },
+          ].filter(r => r.show).map(row => (
+            <label key={row.label} className="flex items-center gap-2 cursor-pointer text-xs">
+              <input type="checkbox" checked={row.value} onChange={e => row.set(e.target.checked)}
+                className="w-4 h-4 rounded" />
+              {row.label}
+            </label>
+          ))}
+          <button onClick={() => onRest({ spellSlots, specials, hp })}
+            className="w-full py-1.5 rounded-lg font-bold text-xs mt-1"
+            style={{ background: 'var(--gold)', color: '#1c1917' }}>
+            Confirm Rest
+          </button>
+        </div>
+      )}
     </div>
   )
 }

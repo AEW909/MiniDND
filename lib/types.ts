@@ -82,6 +82,9 @@ export interface CharacterOther {
   name: string
   description: string | null
   notation: string | null
+  has_slots: boolean
+  max_slots: number
+  used_slots: number
   sort_order: number
   created_at: string
 }
