@@ -330,7 +330,7 @@ export default function CampaignPage() {
 
             return (
               <div key={char.id} className="flex flex-col border-r overflow-y-auto"
-                style={{ width: '300px', minWidth: '300px', borderColor: 'var(--border)', background: 'var(--background)' }}>
+                style={{ width: '300px', minWidth: '300px', borderColor: 'var(--border)' }}>
 
                 {/* Character header */}
                 <div className="sticky top-0 z-10 p-4" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>

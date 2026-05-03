@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=IM+Fell+English+SC&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
 
 /* ── Dungeon (default) ─────────────────────────────────────────────────── */
 :root {
@@ -15,7 +14,7 @@
   --green: #22c55e;
   --danger: #ef4444;
   --success: #22c55e;
-  --font-display: 'Cinzel', Georgia, serif;
+  --font-display: var(--font-cinzel);
   --font-body: system-ui, -apple-system, sans-serif;
   --overlay-color: rgba(28, 25, 23, 0.55);
 }
@@ -34,8 +33,8 @@
   --green: #34d399;
   --danger: #f87171;
   --success: #34d399;
-  --font-display: 'Cinzel', Georgia, serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: var(--font-cinzel);
+  --font-body: var(--font-inter);
   --overlay-color: rgba(15, 14, 23, 0.55);
 }
 
@@ -53,9 +52,47 @@
   --green: #27ae60;
   --danger: #c0392b;
   --success: #27ae60;
-  --font-display: 'IM Fell English SC', Georgia, serif;
-  --font-body: 'Crimson Text', Georgia, serif;
+  --font-display: var(--font-im-fell);
+  --font-body: var(--font-crimson);
   --overlay-color: rgba(245, 239, 224, 0.55);
+}
+
+/* ── Notion ────────────────────────────────────────────────────────────── */
+[data-theme="notion"] {
+  --background: #ffffff;
+  --surface: #f7f6f3;
+  --surface-2: #ebebea;
+  --border: #e3e2de;
+  --text: #37352f;
+  --text-muted: #787774;
+  --gold: #2383e2;
+  --gold-light: #5ba7f5;
+  --red: #eb5757;
+  --green: #0f7b6c;
+  --danger: #eb5757;
+  --success: #0f7b6c;
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
+  --overlay-color: rgba(247, 246, 243, 0.55);
+}
+
+/* ── Matrix ────────────────────────────────────────────────────────────── */
+[data-theme="matrix"] {
+  --background: #000000;
+  --surface: #0a0a0a;
+  --surface-2: #0f1a0f;
+  --border: #004400;
+  --text: #00ff41;
+  --text-muted: #006600;
+  --gold: #00ff41;
+  --gold-light: #00cc33;
+  --red: #ff3300;
+  --green: #00ff41;
+  --danger: #ff3300;
+  --success: #00ff41;
+  --font-display: var(--font-mono);
+  --font-body: var(--font-mono);
+  --overlay-color: rgba(0, 0, 0, 0.65);
 }
 
 @theme inline {

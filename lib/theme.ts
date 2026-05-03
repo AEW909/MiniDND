@@ -1,23 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-export type Theme = 'dungeon' | 'arcane' | 'parchment'
+export type Theme = 'dungeon' | 'arcane' | 'parchment' | 'notion' | 'matrix'
 
 const THEME_KEY = 'minidnd_theme'
 
-const THEME_FONTS: Record<Theme, { display: string; body: string }> = {
-  dungeon:   { display: "'Cinzel', Georgia, serif",            body: "system-ui, -apple-system, sans-serif" },
-  arcane:    { display: "'Cinzel', Georgia, serif",            body: "'Inter', system-ui, sans-serif" },
-  parchment: { display: "'IM Fell English SC', Georgia, serif", body: "'Crimson Text', Georgia, serif" },
-}
-
 function applyTheme(t: Theme) {
   document.documentElement.setAttribute('data-theme', t)
-  // Set font variables directly on the element so browsers repaint immediately
-  const { display, body } = THEME_FONTS[t]
-  document.documentElement.style.setProperty('--font-display', display)
-  document.documentElement.style.setProperty('--font-body', body)
-  document.body.style.fontFamily = body
 }
 
 export const THEMES: {
@@ -43,6 +32,18 @@ export const THEMES: {
     name: 'Parchment',
     emoji: '📜',
     preview: { bg: '#f5efe0', surface: '#ede3cc', accent: '#8b5e2a', text: '#2c1a0e' },
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    emoji: '📋',
+    preview: { bg: '#ffffff', surface: '#f7f6f3', accent: '#2383e2', text: '#37352f' },
+  },
+  {
+    id: 'matrix',
+    name: 'Matrix',
+    emoji: '💻',
+    preview: { bg: '#000000', surface: '#0a0a0a', accent: '#00ff41', text: '#00ff41' },
   },
 ]
 
