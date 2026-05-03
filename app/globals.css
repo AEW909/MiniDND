@@ -17,7 +17,7 @@
   --success: #22c55e;
   --font-display: 'Cinzel', Georgia, serif;
   --font-body: system-ui, -apple-system, sans-serif;
-  --overlay-color: rgba(28, 25, 23, 0.82);
+  --overlay-color: rgba(28, 25, 23, 0.55);
 }
 
 /* ── Arcane ────────────────────────────────────────────────────────────── */
@@ -36,7 +36,7 @@
   --success: #34d399;
   --font-display: 'Cinzel', Georgia, serif;
   --font-body: 'Inter', system-ui, sans-serif;
-  --overlay-color: rgba(15, 14, 23, 0.82);
+  --overlay-color: rgba(15, 14, 23, 0.55);
 }
 
 /* ── Parchment ─────────────────────────────────────────────────────────── */
@@ -55,7 +55,7 @@
   --success: #27ae60;
   --font-display: 'IM Fell English SC', Georgia, serif;
   --font-body: 'Crimson Text', Georgia, serif;
-  --overlay-color: rgba(245, 239, 224, 0.82);
+  --overlay-color: rgba(245, 239, 224, 0.55);
 }
 
 @theme inline {

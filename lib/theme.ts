@@ -5,6 +5,21 @@ export type Theme = 'dungeon' | 'arcane' | 'parchment'
 
 const THEME_KEY = 'minidnd_theme'
 
+const THEME_FONTS: Record<Theme, { display: string; body: string }> = {
+  dungeon:   { display: "'Cinzel', Georgia, serif",            body: "system-ui, -apple-system, sans-serif" },
+  arcane:    { display: "'Cinzel', Georgia, serif",            body: "'Inter', system-ui, sans-serif" },
+  parchment: { display: "'IM Fell English SC', Georgia, serif", body: "'Crimson Text', Georgia, serif" },
+}
+
+function applyTheme(t: Theme) {
+  document.documentElement.setAttribute('data-theme', t)
+  // Set font variables directly on the element so browsers repaint immediately
+  const { display, body } = THEME_FONTS[t]
+  document.documentElement.style.setProperty('--font-display', display)
+  document.documentElement.style.setProperty('--font-body', body)
+  document.body.style.fontFamily = body
+}
+
 export const THEMES: {
   id: Theme
   name: string
@@ -37,12 +52,13 @@ export function useTheme() {
   useEffect(() => {
     const stored = (localStorage.getItem(THEME_KEY) as Theme) || 'dungeon'
     setThemeState(stored)
+    applyTheme(stored)
   }, [])
 
   function setTheme(t: Theme) {
     setThemeState(t)
     localStorage.setItem(THEME_KEY, t)
-    document.documentElement.setAttribute('data-theme', t)
+    applyTheme(t)
   }
 
   return { theme, setTheme }
