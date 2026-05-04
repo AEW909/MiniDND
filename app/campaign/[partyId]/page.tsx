@@ -469,37 +469,35 @@ export default function CampaignPage() {
                       </button>
                       {skillsOpen && (
                         simplifiedSkills ? (
-                          // Grouped by ability with clear headers and proficiency icons
-                          ['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
-                            const abSkills = skills.filter(s => s.ability === ab)
-                            if (!abSkills.length) return null
-                            const abMod = abilityModifier(scores[ab])
-                            return (
-                              <div key={ab}>
-                                <div className="flex items-center gap-2 px-4 py-1.5" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-                                  <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</span>
-                                  <span className="text-xs font-semibold">{scores[ab]}</span>
-                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({formatModifier(abMod)})</span>
+                          // Compact: ability header row, then skills inline (wrapping)
+                          <div className="px-3 py-2 space-y-2">
+                            {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
+                              const abSkills = skills.filter(s => s.ability === ab)
+                              if (!abSkills.length) return null
+                              const abMod = abilityModifier(scores[ab])
+                              return (
+                                <div key={ab}>
+                                  <div className="flex items-baseline gap-1.5 mb-1">
+                                    <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</span>
+                                    <span className="text-xs font-semibold">{scores[ab]}</span>
+                                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({formatModifier(abMod)})</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 pl-2">
+                                    {abSkills.map(skill => {
+                                      const icon = skill.is_expert ? '◈' : skill.is_proficient ? '●' : '○'
+                                      const iconColor = skill.is_expert ? 'var(--gold-light)' : skill.is_proficient ? 'var(--gold)' : 'var(--text-muted)'
+                                      return (
+                                        <span key={skill.id} className="flex items-center gap-0.5 text-xs whitespace-nowrap">
+                                          <span style={{ color: iconColor }}>{icon}</span>
+                                          <span style={{ color: 'var(--text)' }}>{skill.skill_name}</span>
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
                                 </div>
-                                {abSkills.map(skill => {
-                                  const mult = skill.is_expert ? 2 : skill.is_proficient ? 1 : 0
-                                  const mod = abMod + mult * prof
-                                  return (
-                                    <div key={skill.id} className="flex items-center gap-2 pl-7 pr-4 py-1.5"
-                                      style={{ borderBottom: '1px solid var(--border)' }}>
-                                      <span className="text-sm shrink-0" style={{
-                                        color: skill.is_expert ? 'var(--gold-light)' : skill.is_proficient ? 'var(--gold)' : 'var(--border)',
-                                      }}>
-                                        {skill.is_expert ? '◈' : skill.is_proficient ? '●' : '○'}
-                                      </span>
-                                      <span className="flex-1 text-xs">{skill.skill_name}</span>
-                                      <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--gold)' }}>{formatModifier(mod)}</span>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )
-                          })
+                              )
+                            })}
+                          </div>
                         ) : skillsSort === 'ability' ? (
                           // Grouped by ability, no prominent headers
                           ['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
