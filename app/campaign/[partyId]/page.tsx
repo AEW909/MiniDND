@@ -445,20 +445,22 @@ export default function CampaignPage() {
                 <div className="flex-1 flex flex-col">
                   {/* Skills & Abilities */}
                   <Section label="Skills & Abilities 🎯" isOpen={expanded === 'skills'} onToggle={() => toggleSection(char.id, 'skills')}>
-                    {/* Ability scores grid */}
-                    <div className="grid grid-cols-3 gap-1.5 p-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                      {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
-                        const score = scores[ab]
-                        const mod = abilityModifier(score)
-                        return (
-                          <div key={ab} className="text-center py-1.5 rounded-lg" style={{ background: 'var(--surface)' }}>
-                            <p className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</p>
-                            <p className="text-sm font-bold">{score}</p>
-                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatModifier(mod)}</p>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    {/* Ability scores grid — hidden in simplified mode since it's shown inline */}
+                    {!simplifiedSkills && (
+                      <div className="grid grid-cols-3 gap-1.5 p-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                        {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
+                          const score = scores[ab]
+                          const mod = abilityModifier(score)
+                          return (
+                            <div key={ab} className="text-center py-1.5 rounded-lg" style={{ background: 'var(--surface)' }}>
+                              <p className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</p>
+                              <p className="text-sm font-bold">{score}</p>
+                              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatModifier(mod)}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                     {/* Skills sub-section */}
                     <div>
                       <button onClick={() => toggleSkillsOpen(char.id)}
@@ -469,12 +471,17 @@ export default function CampaignPage() {
                       </button>
                       {skillsOpen && (
                         simplifiedSkills ? (
-                          // Compact: ability header row, then skills inline (wrapping)
-                          <div className="px-3 py-2 space-y-2">
+                          // Compact: ability header, then one row per proficiency tier with shared modifier
+                          <div className="px-3 py-2 space-y-3">
                             {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
                               const abSkills = skills.filter(s => s.ability === ab)
                               if (!abSkills.length) return null
                               const abMod = abilityModifier(scores[ab])
+                              const tiers = [
+                                { key: 'expert',    icon: '◈', color: 'var(--gold-light)', skills: abSkills.filter(s => s.is_expert),                        mod: abMod + 2 * prof },
+                                { key: 'prof',      icon: '●', color: 'var(--gold)',       skills: abSkills.filter(s => s.is_proficient && !s.is_expert),     mod: abMod + prof },
+                                { key: 'none',      icon: '○', color: 'var(--text-muted)', skills: abSkills.filter(s => !s.is_proficient),                   mod: abMod },
+                              ].filter(t => t.skills.length > 0)
                               return (
                                 <div key={ab}>
                                   <div className="flex items-baseline gap-1.5 mb-1">
@@ -482,17 +489,18 @@ export default function CampaignPage() {
                                     <span className="text-xs font-semibold">{scores[ab]}</span>
                                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({formatModifier(abMod)})</span>
                                   </div>
-                                  <div className="flex flex-wrap gap-x-3 gap-y-1 pl-2">
-                                    {abSkills.map(skill => {
-                                      const icon = skill.is_expert ? '◈' : skill.is_proficient ? '●' : '○'
-                                      const iconColor = skill.is_expert ? 'var(--gold-light)' : skill.is_proficient ? 'var(--gold)' : 'var(--text-muted)'
-                                      return (
-                                        <span key={skill.id} className="flex items-center gap-0.5 text-xs whitespace-nowrap">
-                                          <span style={{ color: iconColor }}>{icon}</span>
-                                          <span style={{ color: 'var(--text)' }}>{skill.skill_name}</span>
-                                        </span>
-                                      )
-                                    })}
+                                  <div className="pl-2 space-y-0.5">
+                                    {tiers.map(tier => (
+                                      <div key={tier.key} className="flex items-center gap-x-2 flex-wrap gap-y-0.5">
+                                        {tier.skills.map(skill => (
+                                          <span key={skill.id} className="flex items-center gap-0.5 text-xs whitespace-nowrap">
+                                            <span style={{ color: tier.color }}>{tier.icon}</span>
+                                            <span>{skill.skill_name}</span>
+                                          </span>
+                                        ))}
+                                        <span className="text-xs font-bold tabular-nums ml-auto" style={{ color: 'var(--gold)' }}>{formatModifier(tier.mod)}</span>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
                               )
