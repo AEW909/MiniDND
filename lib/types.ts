@@ -3,6 +3,7 @@ export interface Party {
   name: string
   pin: string
   background_url: string | null
+  icon_key: string | null
   created_at: string
 }
 

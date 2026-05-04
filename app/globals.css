@@ -16,6 +16,7 @@
   --success: #22c55e;
   --font-display: var(--font-cinzel);
   --font-body: system-ui, -apple-system, sans-serif;
+  --display-spacing: 0.02em;
   --overlay-color: rgba(28, 25, 23, 0.55);
 }
 
@@ -35,6 +36,7 @@
   --success: #34d399;
   --font-display: var(--font-cinzel);
   --font-body: var(--font-inter);
+  --display-spacing: 0.02em;
   --overlay-color: rgba(15, 14, 23, 0.55);
 }
 
@@ -54,6 +56,7 @@
   --success: #27ae60;
   --font-display: var(--font-im-fell);
   --font-body: var(--font-crimson);
+  --display-spacing: 0.02em;
   --overlay-color: rgba(245, 239, 224, 0.55);
 }
 
@@ -73,6 +76,7 @@
   --success: #0f7b6c;
   --font-display: var(--font-inter);
   --font-body: var(--font-inter);
+  --display-spacing: 0.01em;
   --overlay-color: rgba(247, 246, 243, 0.55);
 }
 
@@ -92,6 +96,167 @@
   --success: #00ff41;
   --font-display: var(--font-mono);
   --font-body: var(--font-mono);
+  --display-spacing: 0.04em;
+  --overlay-color: rgba(0, 0, 0, 0.65);
+}
+
+/* ── Blood Moon ────────────────────────────────────────────────────────── */
+[data-theme="bloodmoon"] {
+  --background: #0d0000;
+  --surface: #1a0505;
+  --surface-2: #280808;
+  --border: #5c1010;
+  --text: #f0d0d0;
+  --text-muted: #8b4040;
+  --gold: #cc2222;
+  --gold-light: #ff4444;
+  --red: #ff2222;
+  --green: #44aa44;
+  --danger: #ff2222;
+  --success: #44aa44;
+  --font-display: var(--font-pirata);
+  --font-body: var(--font-garamond);
+  --display-spacing: 0.03em;
+  --overlay-color: rgba(13, 0, 0, 0.60);
+}
+
+/* ── Forest ────────────────────────────────────────────────────────────── */
+[data-theme="forest"] {
+  --background: #0a1a0a;
+  --surface: #122012;
+  --surface-2: #1e331e;
+  --border: #2d4a2d;
+  --text: #d4e8d0;
+  --text-muted: #6a9060;
+  --gold: #c8962a;
+  --gold-light: #e8b840;
+  --red: #e05050;
+  --green: #4ab840;
+  --danger: #e05050;
+  --success: #4ab840;
+  --font-display: var(--font-philosopher);
+  --font-body: var(--font-lato);
+  --display-spacing: 0.02em;
+  --overlay-color: rgba(10, 26, 10, 0.58);
+}
+
+/* ── Frost ─────────────────────────────────────────────────────────────── */
+[data-theme="frost"] {
+  --background: #e8f4f8;
+  --surface: #d0e8f0;
+  --surface-2: #b8d8e8;
+  --border: #88b8d0;
+  --text: #1a3040;
+  --text-muted: #4a7088;
+  --gold: #0080c0;
+  --gold-light: #40a8e8;
+  --red: #c03030;
+  --green: #208060;
+  --danger: #c03030;
+  --success: #208060;
+  --font-display: var(--font-raleway);
+  --font-body: var(--font-nunito);
+  --display-spacing: 0.06em;
+  --overlay-color: rgba(232, 244, 248, 0.58);
+}
+
+/* ── Volcanic ──────────────────────────────────────────────────────────── */
+[data-theme="volcanic"] {
+  --background: #120808;
+  --surface: #1e1010;
+  --surface-2: #2e1a0a;
+  --border: #4a2010;
+  --text: #f0c090;
+  --text-muted: #886040;
+  --gold: #ff6600;
+  --gold-light: #ff9933;
+  --red: #ff2200;
+  --green: #60a820;
+  --danger: #ff2200;
+  --success: #60a820;
+  --font-display: var(--font-bebas);
+  --font-body: var(--font-lato);
+  --display-spacing: 0.08em;
+  --overlay-color: rgba(18, 8, 8, 0.60);
+}
+
+/* ── Rose ──────────────────────────────────────────────────────────────── */
+[data-theme="rose"] {
+  --background: #fdf4f5;
+  --surface: #f5e0e4;
+  --surface-2: #eeccd2;
+  --border: #d4a0b0;
+  --text: #3d1a24;
+  --text-muted: #8a5566;
+  --gold: #c05070;
+  --gold-light: #e07090;
+  --red: #c02020;
+  --green: #208050;
+  --danger: #c02020;
+  --success: #208050;
+  --font-display: var(--font-cormorant);
+  --font-body: var(--font-mulish);
+  --display-spacing: 0.04em;
+  --overlay-color: rgba(253, 244, 245, 0.58);
+}
+
+/* ── Celestial ─────────────────────────────────────────────────────────── */
+[data-theme="celestial"] {
+  --background: #08080f;
+  --surface: #10101e;
+  --surface-2: #181828;
+  --border: #282848;
+  --text: #e8e8f8;
+  --text-muted: #7070a0;
+  --gold: #ffd700;
+  --gold-light: #ffe866;
+  --red: #ff6666;
+  --green: #44cc88;
+  --danger: #ff6666;
+  --success: #44cc88;
+  --font-display: var(--font-josefin);
+  --font-body: var(--font-quicksand);
+  --display-spacing: 0.10em;
+  --overlay-color: rgba(8, 8, 15, 0.58);
+}
+
+/* ── Ocean ─────────────────────────────────────────────────────────────── */
+[data-theme="ocean"] {
+  --background: #061626;
+  --surface: #0d2238;
+  --surface-2: #163350;
+  --border: #1e4870;
+  --text: #c8e8f8;
+  --text-muted: #5090b8;
+  --gold: #00c8b8;
+  --gold-light: #40e8d8;
+  --red: #e05050;
+  --green: #40c880;
+  --danger: #e05050;
+  --success: #40c880;
+  --font-display: var(--font-playfair);
+  --font-body: var(--font-source-sans);
+  --display-spacing: 0.02em;
+  --overlay-color: rgba(6, 22, 38, 0.58);
+}
+
+/* ── High Contrast ─────────────────────────────────────────────────────── */
+[data-theme="highcontrast"] {
+  --background: #000000;
+  --surface: #111111;
+  --surface-2: #222222;
+  --border: #555555;
+  --text: #ffffff;
+  --text-muted: #aaaaaa;
+  --gold: #ffffff;
+  --gold-light: #dddddd;
+  --red: #ff4444;
+  --green: #44ff44;
+  --danger: #ff4444;
+  --success: #44ff44;
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
+  --display-spacing: 0.01em;
   --overlay-color: rgba(0, 0, 0, 0.65);
 }
 
@@ -114,7 +279,7 @@
 
 .font-display {
   font-family: var(--font-display);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--display-spacing, 0.02em);
 }
 
 html, body {

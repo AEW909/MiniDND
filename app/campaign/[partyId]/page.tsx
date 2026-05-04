@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
-  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
+  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier, getPartyIcon,
 } from '@/lib/constants'
 import { slotLevelLabel } from '@/lib/spell-slots'
 
@@ -28,6 +28,7 @@ export default function CampaignPage() {
   const router = useRouter()
   const [partyName, setPartyName] = useState('')
   const [partyBg, setPartyBg] = useState<string | null>(null)
+  const [partyIconKey, setPartyIconKey] = useState<string | null>(null)
   const [charData, setCharData] = useState<CharData[]>([])
   const [loading, setLoading] = useState(true)
   const [hpEdit, setHpEdit] = useState<{ charId: string; value: string } | null>(null)
@@ -57,9 +58,10 @@ export default function CampaignPage() {
 
   async function load() {
     setLoading(true)
-    const { data: party } = await supabase.from('parties').select('name, background_url').eq('id', partyId).single()
+    const { data: party } = await supabase.from('parties').select('name, background_url, icon_key').eq('id', partyId).single()
     setPartyName(party?.name ?? '')
     setPartyBg(party?.background_url ?? null)
+    setPartyIconKey(party?.icon_key ?? null)
 
     const { data: chars } = await supabase.from('characters').select('*').eq('party_id', partyId).order('sort_order').order('created_at')
     if (!chars) { setLoading(false); return }
@@ -298,7 +300,7 @@ export default function CampaignPage() {
         <button onClick={() => router.back()} className="p-2 rounded-xl" style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={22} />
         </button>
-        <span className="text-xl">⚔️</span>
+        <span className="text-xl">{getPartyIcon(partyIconKey)}</span>
         <h1 className="font-display text-lg font-bold" style={{ color: 'var(--gold)' }}>{partyName} — Campaign View</h1>
         <span className="text-xs ml-auto px-2 py-1 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--success)' }}>
           ● Live

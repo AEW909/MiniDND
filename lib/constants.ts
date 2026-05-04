@@ -1,3 +1,35 @@
+export const PARTY_ICONS = [
+  { key: 'shield',   emoji: '🛡️', label: 'Shield' },
+  { key: 'swords',   emoji: '⚔️', label: 'Swords' },
+  { key: 'castle',   emoji: '🏰', label: 'Castle' },
+  { key: 'dragon',   emoji: '🐉', label: 'Dragon' },
+  { key: 'map',      emoji: '🗺️', label: 'Map' },
+  { key: 'crown',    emoji: '👑', label: 'Crown' },
+  { key: 'skull',    emoji: '💀', label: 'Skull' },
+  { key: 'fire',     emoji: '🔥', label: 'Fire' },
+  { key: 'lightning',emoji: '⚡', label: 'Lightning' },
+  { key: 'moon',     emoji: '🌙', label: 'Moon' },
+  { key: 'sun',      emoji: '☀️', label: 'Sun' },
+  { key: 'leaf',     emoji: '🌿', label: 'Leaf' },
+  { key: 'wave',     emoji: '🌊', label: 'Wave' },
+  { key: 'wand',     emoji: '🪄', label: 'Wand' },
+  { key: 'dagger',   emoji: '🗡️', label: 'Dagger' },
+  { key: 'bow',      emoji: '🏹', label: 'Bow' },
+  { key: 'gem',      emoji: '💎', label: 'Gem' },
+  { key: 'crystal',  emoji: '🔮', label: 'Crystal' },
+  { key: 'axe',      emoji: '🪓', label: 'Axe' },
+  { key: 'star',     emoji: '⭐', label: 'Star' },
+  { key: 'comet',    emoji: '☄️', label: 'Comet' },
+  { key: 'potion',   emoji: '🧪', label: 'Potion' },
+  { key: 'scroll',   emoji: '📜', label: 'Scroll' },
+  { key: 'tent',     emoji: '⛺', label: 'Camp' },
+]
+
+export function getPartyIcon(key: string | null | undefined): string {
+  if (!key) return '🛡️'
+  return PARTY_ICONS.find(i => i.key === key)?.emoji ?? '🛡️'
+}
+
 export const SPECIES = [
   'Human', 'Elf', 'Dwarf', 'Halfling', 'Gnome',
   'Half-Elf', 'Half-Orc', 'Tiefling', 'Dragonborn',

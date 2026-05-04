@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, ArrowLeft, Swords, Trash2, ImagePlus } from 'lucide-react'
+import { Plus, ArrowLeft, Swords, Trash2, ImagePlus, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
-import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, getAvatarEmoji, abilityModifier } from '@/lib/constants'
+import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
 import { getSpellSlots, isCasterClass } from '@/lib/spell-slots'
 import Modal from '@/components/Modal'
 
@@ -41,6 +41,9 @@ export default function PartyPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [showBgPicker, setShowBgPicker] = useState(false)
   const [bgInput, setBgInput] = useState('')
+  const [showEditParty, setShowEditParty] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editIconKey, setEditIconKey] = useState<string | null>(null)
   const [newChar, setNewChar] = useState<NewChar>(defaultChar())
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -132,6 +135,13 @@ export default function PartyPage() {
     setCharacters(prev => prev.filter(c => c.id !== char.id))
   }
 
+  async function savePartyDetails() {
+    if (!editName.trim()) return
+    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey }).eq('id', id)
+    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey } : prev)
+    setShowEditParty(false)
+  }
+
   async function saveBackground(url: string | null) {
     await supabase.from('parties').update({ background_url: url }).eq('id', id)
     setParty(prev => prev ? { ...prev, background_url: url } : prev)
@@ -158,10 +168,17 @@ export default function PartyPage() {
           style={{ color: 'var(--text-muted)' }}>
           <ArrowLeft size={22} />
         </button>
+        <span className="text-3xl">{getPartyIcon(party?.icon_key)}</span>
         <div className="flex-1">
           <h1 className="text-xl font-bold" style={{ color: 'var(--gold)' }}>{party?.name}</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{characters.length} adventurer{characters.length !== 1 ? 's' : ''}</p>
         </div>
+        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setShowEditParty(true) }}
+          className="p-2 rounded-xl transition-opacity hover:opacity-80"
+          title="Edit party"
+          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+          <Pencil size={18} />
+        </button>
         <button onClick={() => { setBgInput(party?.background_url ?? ''); setShowBgPicker(true) }}
           className="p-2 rounded-xl transition-opacity hover:opacity-80"
           title="Set party background"
@@ -218,6 +235,40 @@ export default function PartyPage() {
           </div>
         )}
       </main>
+
+      {showEditParty && (
+        <Modal title="Edit Party" onClose={() => setShowEditParty(false)}>
+          <div className="flex flex-col gap-4">
+            <Field label="Party name">
+              <input autoFocus type="text" value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && savePartyDetails()}
+                className="w-full px-4 py-3 rounded-xl outline-none"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+            </Field>
+            <Field label="Party icon">
+              <div className="grid grid-cols-8 gap-2 mt-1">
+                {PARTY_ICONS.map(icon => (
+                  <button key={icon.key} onClick={() => setEditIconKey(icon.key)}
+                    title={icon.label}
+                    className="text-2xl p-2 rounded-xl transition-all"
+                    style={{
+                      background: editIconKey === icon.key ? 'var(--gold)' : 'var(--surface-2)',
+                      border: `2px solid ${editIconKey === icon.key ? 'var(--gold)' : 'transparent'}`,
+                    }}>
+                    {icon.emoji}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <button onClick={savePartyDetails}
+              className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
+              style={{ background: 'var(--gold)', color: '#1c1917' }}>
+              Save
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {showBgPicker && (
         <Modal title="Party Background" onClose={() => setShowBgPicker(false)}>

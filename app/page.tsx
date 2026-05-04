@@ -5,6 +5,7 @@ import { Plus, Eye, EyeOff, Trash2, Palette } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party } from '@/lib/types'
 import { useTheme, THEMES } from '@/lib/theme'
+import { getPartyIcon } from '@/lib/constants'
 import Modal from '@/components/Modal'
 
 const SESSION_KEY = 'minidnd_unlocked'
@@ -152,7 +153,7 @@ export default function PartiesPage() {
                   }}>
                   <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: isUnlocked ? 'var(--gold)' : 'var(--border)' }} />
                   <div className="flex items-start justify-between mb-3">
-                    <span className="text-5xl">{isUnlocked ? '🛡️' : '🔒'}</span>
+                    <span className="text-5xl">{isUnlocked ? getPartyIcon(party.icon_key) : '🔒'}</span>
                     {isUnlocked && (
                       <span onClick={e => deleteParty(party, e)}
                         className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all cursor-pointer"
