@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Plus, ArrowLeft, Swords, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
-import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
+import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, CLASS_ABILITY_SUGGESTIONS, CLASS_STARTER_GEAR, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
 import { getSpellSlots, isCasterClass } from '@/lib/spell-slots'
 import { applyTheme, resetToGlobalTheme, THEMES } from '@/lib/theme'
 import { ThemeSwatchPicker } from '@/app/page'
@@ -20,7 +20,7 @@ const STAT_LABELS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
 
 type NewChar = {
   name: string; avatar_key: string; class: string; subclass: string; species: string
-  level: string; speed: string; max_hp: string
+  level: string; speed: string; max_hp: string; ac: string
   str_score: string; dex_score: string; con_score: string
   int_score: string; wis_score: string; cha_score: string
   use_spell_slots: boolean
@@ -28,7 +28,7 @@ type NewChar = {
 
 const defaultChar = (): NewChar => ({
   name: '', avatar_key: 'warrior', class: 'Fighter', subclass: '', species: '',
-  level: '1', speed: '30', max_hp: '10',
+  level: '1', speed: '30', max_hp: '10', ac: '10',
   str_score: '10', dex_score: '10', con_score: '10',
   int_score: '10', wis_score: '10', cha_score: '10',
   use_spell_slots: false,
@@ -46,6 +46,10 @@ export default function PartyPage() {
   const [editIconKey, setEditIconKey] = useState<string | null>(null)
   const [editTheme, setEditTheme] = useState<string | null>(null)
   const [editBgUrl, setEditBgUrl] = useState('')
+  const [editSimplifiedSkills, setEditSimplifiedSkills] = useState(false)
+  const [editSimplifiedCreation, setEditSimplifiedCreation] = useState(false)
+  const [editSkillsSort, setEditSkillsSort] = useState('alpha')
+  const [simplifiedCreation, setSimplifiedCreation] = useState(false)
   const [newChar, setNewChar] = useState<NewChar>(defaultChar())
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -64,6 +68,7 @@ export default function PartyPage() {
     ])
     setParty(p)
     setCharacters(c ?? [])
+    setSimplifiedCreation(p?.simplified_creation ?? false)
     setLoading(false)
     if (p?.theme) applyTheme(p.theme as Parameters<typeof applyTheme>[0])
     else resetToGlobalTheme()
@@ -76,6 +81,19 @@ export default function PartyPage() {
         const subclasses = CLASSES[val as string] ?? []
         updated.subclass = subclasses[0] ?? ''
         updated.use_spell_slots = isCasterClass(val as string, subclasses[0] ?? null)
+        if (simplifiedCreation) {
+          const sug = CLASS_ABILITY_SUGGESTIONS[val as string]
+          const gear = CLASS_STARTER_GEAR[val as string]
+          if (sug) {
+            updated.str_score = String(sug.str_score)
+            updated.dex_score = String(sug.dex_score)
+            updated.con_score = String(sug.con_score)
+            updated.int_score = String(sug.int_score)
+            updated.wis_score = String(sug.wis_score)
+            updated.cha_score = String(sug.cha_score)
+          }
+          if (gear) updated.ac = String(gear.ac)
+        }
       }
       return updated
     })
@@ -98,6 +116,7 @@ export default function PartyPage() {
       speed: parseInt(newChar.speed) || 30,
       max_hp: hp,
       current_hp: hp,
+      ac: parseInt(newChar.ac) || 10,
       str_score: parseInt(newChar.str_score) || 10,
       dex_score: parseInt(newChar.dex_score) || 10,
       con_score: parseInt(newChar.con_score) || 10,
@@ -125,6 +144,19 @@ export default function PartyPage() {
       if (slotRows.length > 0) await supabase.from('character_spell_slots').insert(slotRows)
     }
 
+    // Simplified creation: auto-add starter gear
+    if (simplifiedCreation) {
+      const gear = CLASS_STARTER_GEAR[newChar.class]
+      if (gear) {
+        const atkRows = gear.attacks.map((a, i) => ({ character_id: char.id, ...a, description: null, sort_order: i }))
+        const invRows = gear.inventory.map((item, i) => ({ character_id: char.id, ...item, sort_order: i }))
+        await Promise.all([
+          atkRows.length ? supabase.from('character_attacks').insert(atkRows) : Promise.resolve(),
+          invRows.length ? supabase.from('character_inventory').insert(invRows) : Promise.resolve(),
+        ])
+      }
+    }
+
     setCreating(false)
     setShowCreate(false)
     setNewChar(defaultChar())
@@ -142,8 +174,15 @@ export default function PartyPage() {
   async function savePartyDetails() {
     if (!editName.trim()) return
     const bgUrl = editBgUrl.trim() || null
-    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl }).eq('id', id)
-    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl } : prev)
+    await supabase.from('parties').update({
+      name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl,
+      simplified_skills: editSimplifiedSkills, simplified_creation: editSimplifiedCreation, skills_sort: editSkillsSort,
+    }).eq('id', id)
+    setParty(prev => prev ? {
+      ...prev, name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl,
+      simplified_skills: editSimplifiedSkills, simplified_creation: editSimplifiedCreation, skills_sort: editSkillsSort,
+    } : prev)
+    setSimplifiedCreation(editSimplifiedCreation)
     if (editTheme) applyTheme(editTheme as Parameters<typeof applyTheme>[0])
     else resetToGlobalTheme()
     setShowEditParty(false)
@@ -175,7 +214,16 @@ export default function PartyPage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--gold)' }}>{party?.name}</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{characters.length} adventurer{characters.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setEditTheme(party?.theme ?? null); setEditBgUrl(party?.background_url ?? ''); setShowEditParty(true) }}
+        <button onClick={() => {
+          setEditName(party?.name ?? '')
+          setEditIconKey(party?.icon_key ?? null)
+          setEditTheme(party?.theme ?? null)
+          setEditBgUrl(party?.background_url ?? '')
+          setEditSimplifiedSkills(party?.simplified_skills ?? false)
+          setEditSimplifiedCreation(party?.simplified_creation ?? false)
+          setEditSkillsSort(party?.skills_sort ?? 'alpha')
+          setShowEditParty(true)
+        }}
           className="p-2 rounded-xl transition-opacity hover:opacity-80"
           title="Edit party"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
@@ -270,6 +318,33 @@ export default function PartyPage() {
                   style={{ backgroundImage: `url(${editBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
               )}
             </Field>
+
+            <div className="rounded-xl p-4 flex flex-col gap-3" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--gold)' }}>Campaign Options</p>
+              <Toggle label="Simplified skills & abilities" description="Groups skills under each ability with proficiency icons"
+                value={editSimplifiedSkills} onChange={setEditSimplifiedSkills} />
+              <Toggle label="Simplified character creation" description="Auto-fills ability scores and adds starter equipment by class"
+                value={editSimplifiedCreation} onChange={setEditSimplifiedCreation} />
+              {!editSimplifiedSkills && (
+                <div>
+                  <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Skill list order</p>
+                  <div className="flex gap-2">
+                    {[{ id: 'alpha', label: 'Alphabetical' }, { id: 'ability', label: 'By ability' }].map(opt => (
+                      <button key={opt.id} onClick={() => setEditSkillsSort(opt.id)}
+                        className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                        style={{
+                          background: editSkillsSort === opt.id ? 'var(--gold)' : 'var(--surface)',
+                          color: editSkillsSort === opt.id ? '#1c1917' : 'var(--text-muted)',
+                          border: `1px solid ${editSkillsSort === opt.id ? 'var(--gold)' : 'var(--border)'}`,
+                        }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button onClick={savePartyDetails}
               className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
               style={{ background: 'var(--gold)', color: '#1c1917' }}>
@@ -335,7 +410,7 @@ export default function PartyPage() {
                 </Field>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-3">
                 <Field label="Level">
                   <input type="number" min="1" max="20" value={newChar.level}
                     onChange={e => setField('level', e.target.value)}
@@ -348,6 +423,12 @@ export default function PartyPage() {
                     className="w-full px-4 py-3 rounded-xl outline-none text-center"
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
                 </Field>
+                <Field label="AC">
+                  <input type="number" min="1" value={newChar.ac}
+                    onChange={e => setField('ac', e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl outline-none text-center"
+                    style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                </Field>
                 <Field label="Speed (ft)">
                   <input type="number" min="0" step="5" value={newChar.speed}
                     onChange={e => setField('speed', e.target.value)}
@@ -355,6 +436,11 @@ export default function PartyPage() {
                     style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
                 </Field>
               </div>
+              {simplifiedCreation && (
+                <p className="text-xs px-1" style={{ color: 'var(--text-muted)' }}>
+                  ✨ Ability scores, AC, and starter gear are pre-filled for {newChar.class}. Adjust as needed.
+                </p>
+              )}
 
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <span className="flex-1 text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
@@ -422,5 +508,24 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
       {children}
     </div>
+  )
+}
+
+function Toggle({ label, description, value, onChange }: {
+  label: string; description: string; value: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer select-none">
+      <div onClick={() => onChange(!value)}
+        className="mt-0.5 w-10 h-6 rounded-full shrink-0 transition-colors relative"
+        style={{ background: value ? 'var(--gold)' : 'var(--surface)', border: '1px solid var(--border)' }}>
+        <div className="absolute top-0.5 w-5 h-5 rounded-full transition-transform"
+          style={{ background: value ? '#1c1917' : 'var(--text-muted)', left: value ? '18px' : '2px' }} />
+      </div>
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{description}</p>
+      </div>
+    </label>
   )
 }

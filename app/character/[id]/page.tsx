@@ -438,9 +438,10 @@ function OverviewTab({ char, prof, scores }: { char: Character; prof: number; sc
   return (
     <div className="p-4 flex flex-col gap-4">
       {/* Core stats strip */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatPill label="Proficiency" value={`+${prof}`} />
-        <StatPill label="Speed" value={`${char.speed} ft`} />
+      <div className="grid grid-cols-4 gap-3">
+        <StatPill label="AC" value={String(char.ac ?? 10)} />
+        <StatPill label="Prof" value={`+${prof}`} />
+        <StatPill label="Speed" value={`${char.speed}ft`} />
         <StatPill label="Level" value={String(char.level)} />
       </div>
 
@@ -1110,12 +1111,13 @@ function EditCharModal({
 }: {
   char: Character
   onClose: () => void
-  onSave: (updates: { level?: number; max_hp?: number; speed?: number; species?: string | null }) => Promise<void>
+  onSave: (updates: { level?: number; max_hp?: number; speed?: number; ac?: number; species?: string | null }) => Promise<void>
 }) {
   const [species, setSpecies] = useState(char.species ?? '')
   const [level, setLevel] = useState(String(char.level))
   const [maxHp, setMaxHp] = useState(String(char.max_hp))
   const [speed, setSpeed] = useState(String(char.speed))
+  const [ac, setAc] = useState(String(char.ac ?? 10))
   const [saving, setSaving] = useState(false)
 
   async function save() {
@@ -1125,6 +1127,7 @@ function EditCharModal({
       level: Math.max(1, Math.min(20, parseInt(level) || 1)),
       max_hp: Math.max(1, parseInt(maxHp) || 1),
       speed: Math.max(0, parseInt(speed) || 30),
+      ac: Math.max(1, parseInt(ac) || 10),
     })
     setSaving(false)
   }
@@ -1144,7 +1147,7 @@ function EditCharModal({
             {SPECIES.map(s => <option key={s} value={s} />)}
           </datalist>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Level</label>
             <input type="number" min="1" max="20" value={level}
@@ -1163,6 +1166,13 @@ function EditCharModal({
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Speed (ft)</label>
             <input type="number" min="0" step="5" value={speed}
               onChange={e => setSpeed(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl outline-none text-center"
+              style={inputStyle} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>AC</label>
+            <input type="number" min="1" value={ac}
+              onChange={e => setAc(e.target.value)}
               className="w-full px-4 py-3 rounded-xl outline-none text-center"
               style={inputStyle} />
           </div>

@@ -195,3 +195,95 @@ export function proficiencyBonus(level: number): number {
 export function formatModifier(mod: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`
 }
+
+// Standard array (15,14,13,12,10,8) assigned to each class's ability priority
+export const CLASS_ABILITY_SUGGESTIONS: Record<string, {
+  str_score: number; dex_score: number; con_score: number
+  int_score: number; wis_score: number; cha_score: number
+}> = {
+  Artificer:  { str_score: 8,  dex_score: 13, con_score: 14, int_score: 15, wis_score: 12, cha_score: 10 },
+  Barbarian:  { str_score: 15, dex_score: 13, con_score: 14, int_score: 8,  wis_score: 12, cha_score: 10 },
+  Bard:       { str_score: 8,  dex_score: 14, con_score: 13, int_score: 10, wis_score: 12, cha_score: 15 },
+  Cleric:     { str_score: 14, dex_score: 8,  con_score: 13, int_score: 10, wis_score: 15, cha_score: 12 },
+  Druid:      { str_score: 10, dex_score: 13, con_score: 14, int_score: 12, wis_score: 15, cha_score: 8  },
+  Fighter:    { str_score: 15, dex_score: 13, con_score: 14, int_score: 8,  wis_score: 12, cha_score: 10 },
+  Monk:       { str_score: 12, dex_score: 15, con_score: 13, int_score: 10, wis_score: 14, cha_score: 8  },
+  Paladin:    { str_score: 15, dex_score: 10, con_score: 13, int_score: 8,  wis_score: 12, cha_score: 14 },
+  Ranger:     { str_score: 12, dex_score: 15, con_score: 13, int_score: 10, wis_score: 14, cha_score: 8  },
+  Rogue:      { str_score: 8,  dex_score: 15, con_score: 13, int_score: 14, wis_score: 12, cha_score: 10 },
+  Sorcerer:   { str_score: 8,  dex_score: 13, con_score: 14, int_score: 10, wis_score: 12, cha_score: 15 },
+  Warlock:    { str_score: 8,  dex_score: 13, con_score: 14, int_score: 10, wis_score: 12, cha_score: 15 },
+  Wizard:     { str_score: 8,  dex_score: 14, con_score: 13, int_score: 15, wis_score: 12, cha_score: 10 },
+}
+
+export const CLASS_STARTER_GEAR: Record<string, {
+  ac: number
+  attacks: { name: string; notation: string | null; damage_type: string | null; to_hit: string | null }[]
+  inventory: { name: string; quantity: number }[]
+}> = {
+  Artificer: {
+    ac: 14,
+    attacks: [{ name: 'Hand Crossbow', notation: '1d6', damage_type: 'piercing', to_hit: '+4' }],
+    inventory: [{ name: "Thieves' Tools", quantity: 1 }, { name: "Tinker's Tools", quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Barbarian: {
+    ac: 13,
+    attacks: [{ name: 'Greataxe', notation: '1d12', damage_type: 'slashing', to_hit: '+5' }, { name: 'Handaxe', notation: '1d6', damage_type: 'slashing', to_hit: '+5' }],
+    inventory: [{ name: 'Handaxe', quantity: 2 }, { name: 'Explorer\'s Pack', quantity: 1 }, { name: 'Javelin', quantity: 4 }],
+  },
+  Bard: {
+    ac: 12,
+    attacks: [{ name: 'Rapier', notation: '1d8', damage_type: 'piercing', to_hit: '+4' }],
+    inventory: [{ name: 'Lute', quantity: 1 }, { name: 'Leather Armor', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Cleric: {
+    ac: 18,
+    attacks: [{ name: 'Mace', notation: '1d6', damage_type: 'bludgeoning', to_hit: '+4' }],
+    inventory: [{ name: 'Chain Mail', quantity: 1 }, { name: 'Shield', quantity: 1 }, { name: 'Holy Symbol', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Druid: {
+    ac: 14,
+    attacks: [{ name: 'Quarterstaff', notation: '1d6', damage_type: 'bludgeoning', to_hit: '+2' }],
+    inventory: [{ name: 'Leather Armor', quantity: 1 }, { name: 'Shield', quantity: 1 }, { name: 'Druidic Focus', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Fighter: {
+    ac: 16,
+    attacks: [{ name: 'Longsword', notation: '1d8', damage_type: 'slashing', to_hit: '+5' }],
+    inventory: [{ name: 'Chain Mail', quantity: 1 }, { name: 'Shield', quantity: 1 }, { name: 'Handaxe', quantity: 2 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Monk: {
+    ac: 14,
+    attacks: [{ name: 'Shortsword', notation: '1d6', damage_type: 'piercing', to_hit: '+4' }, { name: 'Unarmed Strike', notation: '1d4', damage_type: 'bludgeoning', to_hit: '+4' }],
+    inventory: [{ name: 'Dart', quantity: 10 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Paladin: {
+    ac: 18,
+    attacks: [{ name: 'Longsword', notation: '1d8', damage_type: 'slashing', to_hit: '+5' }],
+    inventory: [{ name: 'Plate Armor', quantity: 1 }, { name: 'Shield', quantity: 1 }, { name: 'Holy Symbol', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Ranger: {
+    ac: 14,
+    attacks: [{ name: 'Longbow', notation: '1d8', damage_type: 'piercing', to_hit: '+5' }, { name: 'Shortsword', notation: '1d6', damage_type: 'piercing', to_hit: '+5' }],
+    inventory: [{ name: 'Scale Mail', quantity: 1 }, { name: 'Quiver (20 arrows)', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Rogue: {
+    ac: 13,
+    attacks: [{ name: 'Rapier', notation: '1d8', damage_type: 'piercing', to_hit: '+5' }, { name: 'Shortbow', notation: '1d6', damage_type: 'piercing', to_hit: '+5' }],
+    inventory: [{ name: "Thieves' Tools", quantity: 1 }, { name: 'Leather Armor', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Sorcerer: {
+    ac: 12,
+    attacks: [{ name: 'Dagger', notation: '1d4', damage_type: 'piercing', to_hit: '+4' }],
+    inventory: [{ name: 'Component Pouch', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Warlock: {
+    ac: 12,
+    attacks: [{ name: 'Eldritch Blast', notation: '1d10', damage_type: 'force', to_hit: '+4' }, { name: 'Dagger', notation: '1d4', damage_type: 'piercing', to_hit: '+4' }],
+    inventory: [{ name: 'Arcane Focus', quantity: 1 }, { name: 'Leather Armor', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+  Wizard: {
+    ac: 12,
+    attacks: [{ name: 'Quarterstaff', notation: '1d6', damage_type: 'bludgeoning', to_hit: '+2' }, { name: 'Fire Bolt', notation: '1d10', damage_type: 'fire', to_hit: '+4' }],
+    inventory: [{ name: 'Spellbook', quantity: 1 }, { name: 'Arcane Focus', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
+  },
+}

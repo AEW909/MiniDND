@@ -5,6 +5,9 @@ export interface Party {
   background_url: string | null
   icon_key: string | null
   theme: string | null
+  simplified_skills: boolean
+  simplified_creation: boolean
+  skills_sort: string
   created_at: string
 }
 
@@ -20,6 +23,7 @@ export interface Character {
   max_hp: number
   current_hp: number
   temp_hp: number
+  ac: number
   str_score: number
   dex_score: number
   con_score: number
