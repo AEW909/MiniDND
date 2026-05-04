@@ -356,6 +356,12 @@ export default function CampaignPage() {
               STR: char.str_score, DEX: char.dex_score, CON: char.con_score,
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
+            const wisMod = abilityModifier(char.wis_score)
+            const perceptionSkill = skills.find(s => s.skill_name === 'Perception')
+            const insightSkill = skills.find(s => s.skill_name === 'Insight')
+            const passivePerc = 10 + wisMod + (perceptionSkill?.is_proficient ? (perceptionSkill.is_expert ? 2 : 1) * prof : 0)
+            const passiveWis = 10 + wisMod
+            const passiveIns = 10 + wisMod + (insightSkill?.is_proficient ? (insightSkill.is_expert ? 2 : 1) * prof : 0)
             const effectiveHp = char.current_hp + char.temp_hp
             const hasTemp = char.temp_hp > 0
             const rawHpPct = char.max_hp > 0 ? Math.max(0, Math.min(1, char.current_hp / char.max_hp)) : 0
@@ -500,7 +506,7 @@ export default function CampaignPage() {
                     )}
                   </div>
 
-                  <div className="flex gap-1.5 text-xs text-center mb-2">
+                  <div className="flex gap-1.5 text-xs text-center mb-1.5">
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>AC </span>
                       <span className="font-bold">{char.ac ?? 10}</span>
@@ -512,6 +518,20 @@ export default function CampaignPage() {
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Speed </span>
                       <span className="font-bold">{char.speed}ft</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1.5 text-xs text-center mb-2">
+                    <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>PER </span>
+                      <span className="font-bold">{passivePerc}</span>
+                    </div>
+                    <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>WIS </span>
+                      <span className="font-bold">{passiveWis}</span>
+                    </div>
+                    <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>INS </span>
+                      <span className="font-bold">{passiveIns}</span>
                     </div>
                   </div>
 

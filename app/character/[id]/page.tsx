@@ -314,7 +314,7 @@ export default function CharacterPage() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {tab === 'overview' && (
-          <OverviewTab char={char} prof={prof} scores={scores} onSave={updateChar} />
+          <OverviewTab char={char} prof={prof} scores={scores} skills={skills} onSave={updateChar} />
         )}
         {tab === 'skills' && (
           <SkillsTab skills={skills} scores={scores} prof={prof} onToggle={toggleSkill} />
@@ -440,11 +440,18 @@ export default function CharacterPage() {
 
 // ─── Overview Tab ────────────────────────────────────────────────────────────
 
-function OverviewTab({ char, prof, scores, onSave }: {
+function OverviewTab({ char, prof, scores, skills, onSave }: {
   char: Character; prof: number; scores: Record<string, number>
+  skills: CharacterSkill[]
   onSave: (u: object) => Promise<void>
 }) {
   const [showStatsEdit, setShowStatsEdit] = useState(false)
+  const wisMod = abilityModifier(char.wis_score)
+  const perceptionSkill = skills.find(s => s.skill_name === 'Perception')
+  const insightSkill = skills.find(s => s.skill_name === 'Insight')
+  const passivePerc = 10 + wisMod + (perceptionSkill?.is_proficient ? (perceptionSkill.is_expert ? 2 : 1) * prof : 0)
+  const passiveWis = 10 + wisMod
+  const passiveIns = 10 + wisMod + (insightSkill?.is_proficient ? (insightSkill.is_expert ? 2 : 1) * prof : 0)
   return (
     <div className="p-4 flex flex-col gap-4">
       {/* Core stats strip */}
@@ -460,6 +467,11 @@ function OverviewTab({ char, prof, scores, onSave }: {
         <StatPill label="Prof" value={`+${prof}`} />
         <StatPill label="Speed" value={`${char.speed}ft`} />
         <StatPill label="Level" value={String(char.level)} />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <StatPill label="Passive PER" value={String(passivePerc)} />
+        <StatPill label="Passive WIS" value={String(passiveWis)} />
+        <StatPill label="Passive INS" value={String(passiveIns)} />
       </div>
 
       {/* Ability scores */}
