@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, ArrowLeft, Swords, Trash2, ImagePlus, Pencil } from 'lucide-react'
+import { Plus, ArrowLeft, Swords, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
 import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
@@ -41,12 +41,11 @@ export default function PartyPage() {
   const [characters, setCharacters] = useState<Character[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
-  const [showBgPicker, setShowBgPicker] = useState(false)
-  const [bgInput, setBgInput] = useState('')
   const [showEditParty, setShowEditParty] = useState(false)
   const [editName, setEditName] = useState('')
   const [editIconKey, setEditIconKey] = useState<string | null>(null)
   const [editTheme, setEditTheme] = useState<string | null>(null)
+  const [editBgUrl, setEditBgUrl] = useState('')
   const [newChar, setNewChar] = useState<NewChar>(defaultChar())
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -142,16 +141,12 @@ export default function PartyPage() {
 
   async function savePartyDetails() {
     if (!editName.trim()) return
-    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey, theme: editTheme }).eq('id', id)
-    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey, theme: editTheme } : prev)
+    const bgUrl = editBgUrl.trim() || null
+    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl }).eq('id', id)
+    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey, theme: editTheme, background_url: bgUrl } : prev)
     if (editTheme) applyTheme(editTheme as Parameters<typeof applyTheme>[0])
     else resetToGlobalTheme()
     setShowEditParty(false)
-  }
-
-  async function saveBackground(url: string | null) {
-    await supabase.from('parties').update({ background_url: url }).eq('id', id)
-    setParty(prev => prev ? { ...prev, background_url: url } : prev)
   }
 
   if (loading) return (
@@ -180,17 +175,11 @@ export default function PartyPage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--gold)' }}>{party?.name}</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{characters.length} adventurer{characters.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setEditTheme(party?.theme ?? null); setShowEditParty(true) }}
+        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setEditTheme(party?.theme ?? null); setEditBgUrl(party?.background_url ?? ''); setShowEditParty(true) }}
           className="p-2 rounded-xl transition-opacity hover:opacity-80"
           title="Edit party"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
           <Pencil size={18} />
-        </button>
-        <button onClick={() => { setBgInput(party?.background_url ?? ''); setShowBgPicker(true) }}
-          className="p-2 rounded-xl transition-opacity hover:opacity-80"
-          title="Set party background"
-          style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-          <ImagePlus size={18} />
         </button>
         <button onClick={() => router.push(`/campaign/${id}`)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
@@ -271,43 +260,21 @@ export default function PartyPage() {
             <Field label="Campaign theme">
               <ThemeSwatchPicker value={editTheme} onChange={setEditTheme} />
             </Field>
+            <Field label="Background image URL">
+              <input type="url" placeholder="https://example.com/image.jpg" value={editBgUrl}
+                onChange={e => setEditBgUrl(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl outline-none text-sm"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+              {editBgUrl && (
+                <div className="mt-2 w-full h-28 rounded-xl overflow-hidden"
+                  style={{ backgroundImage: `url(${editBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+              )}
+            </Field>
             <button onClick={savePartyDetails}
               className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
               style={{ background: 'var(--gold)', color: '#1c1917' }}>
               Save
             </button>
-          </div>
-        </Modal>
-      )}
-
-      {showBgPicker && (
-        <Modal title="Party Background" onClose={() => setShowBgPicker(false)}>
-          <div className="flex flex-col gap-4">
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Paste an image URL to use as the background for this party's pages and card.
-            </p>
-            <input type="url" placeholder="https://example.com/image.jpg" value={bgInput}
-              onChange={e => setBgInput(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl outline-none text-sm"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
-            {bgInput && (
-              <div className="w-full h-32 rounded-xl overflow-hidden"
-                style={{ backgroundImage: `url(${bgInput})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-            )}
-            <div className="flex gap-3">
-              {party?.background_url && (
-                <button onClick={() => { saveBackground(null); setShowBgPicker(false) }}
-                  className="flex-1 py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
-                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--danger)' }}>
-                  Remove
-                </button>
-              )}
-              <button onClick={() => { saveBackground(bgInput.trim() || null); setShowBgPicker(false) }}
-                className="flex-1 py-3 rounded-xl font-bold transition-opacity hover:opacity-80"
-                style={{ background: 'var(--gold)', color: '#1c1917' }}>
-                Save
-              </button>
-            </div>
           </div>
         </Modal>
       )}

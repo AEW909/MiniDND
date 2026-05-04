@@ -32,6 +32,7 @@ export default function PartiesPage() {
   const [newPin, setNewPin] = useState('')
   const [newPinConfirm, setNewPinConfirm] = useState('')
   const [newPartyTheme, setNewPartyTheme] = useState<string | null>(null)
+  const [newBgUrl, setNewBgUrl] = useState('')
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -63,12 +64,12 @@ export default function PartiesPage() {
     if (newPin !== newPinConfirm) return setCreateError('PINs do not match')
     setCreating(true)
     const { data, error } = await supabase
-      .from('parties').insert({ name: newName.trim(), pin: newPin, theme: newPartyTheme }).select().single()
+      .from('parties').insert({ name: newName.trim(), pin: newPin, theme: newPartyTheme, background_url: newBgUrl.trim() || null }).select().single()
     setCreating(false)
     if (error || !data) return setCreateError('Failed to create party')
     setUnlocked(data.id)
     setShowCreate(false)
-    setNewName(''); setNewPin(''); setNewPinConfirm(''); setNewPartyTheme(null)
+    setNewName(''); setNewPin(''); setNewPinConfirm(''); setNewPartyTheme(null); setNewBgUrl('')
     router.push(`/party/${data.id}`)
   }
 
@@ -115,7 +116,7 @@ export default function PartiesPage() {
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
             <Palette size={16} /> Theme
           </button>
-          <button onClick={() => { setShowCreate(true); setCreateError(''); setNewPartyTheme(null) }}
+          <button onClick={() => { setShowCreate(true); setCreateError(''); setNewPartyTheme(null); setNewBgUrl('') }}
             className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
             style={{ background: 'var(--gold)', color: '#1c1917' }}>
             <Plus size={18} /> New Party
@@ -241,6 +242,16 @@ export default function PartiesPage() {
             </Field>
             <Field label="Campaign theme (optional)">
               <ThemeSwatchPicker value={newPartyTheme} onChange={setNewPartyTheme} />
+            </Field>
+            <Field label="Background image URL (optional)">
+              <input type="url" placeholder="https://example.com/image.jpg" value={newBgUrl}
+                onChange={e => setNewBgUrl(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+              {newBgUrl && (
+                <div className="mt-2 w-full h-28 rounded-xl overflow-hidden"
+                  style={{ backgroundImage: `url(${newBgUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+              )}
             </Field>
             {createError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{createError}</p>}
             <button onClick={createParty} disabled={creating}
