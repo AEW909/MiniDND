@@ -196,6 +196,24 @@ export function formatModifier(mod: number): string {
   return mod >= 0 ? `+${mod}` : `${mod}`
 }
 
+// SRD saving throw proficiencies per class
+type SaveAb = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'
+export const CLASS_SAVE_PROFS: Record<string, [SaveAb, SaveAb]> = {
+  Artificer: ['con', 'int'],
+  Barbarian: ['str', 'con'],
+  Bard:      ['dex', 'cha'],
+  Cleric:    ['wis', 'cha'],
+  Druid:     ['int', 'wis'],
+  Fighter:   ['str', 'con'],
+  Monk:      ['str', 'dex'],
+  Paladin:   ['wis', 'cha'],
+  Ranger:    ['str', 'dex'],
+  Rogue:     ['dex', 'int'],
+  Sorcerer:  ['con', 'cha'],
+  Warlock:   ['wis', 'cha'],
+  Wizard:    ['int', 'wis'],
+}
+
 // Standard array (15,14,13,12,10,8) assigned to each class's ability priority
 export const CLASS_ABILITY_SUGGESTIONS: Record<string, {
   str_score: number; dex_score: number; con_score: number

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Plus, ArrowLeft, Swords, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
-import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, CLASS_ABILITY_SUGGESTIONS, CLASS_STARTER_GEAR, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
+import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, CLASS_ABILITY_SUGGESTIONS, CLASS_STARTER_GEAR, CLASS_SAVE_PROFS, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
 import { getSpellSlots, isCasterClass } from '@/lib/spell-slots'
 import { applyTheme, resetToGlobalTheme, THEMES } from '@/lib/theme'
 import { ThemeSwatchPicker } from '@/app/page'
@@ -24,6 +24,17 @@ type NewChar = {
   str_score: string; dex_score: string; con_score: string
   int_score: string; wis_score: string; cha_score: string
   use_spell_slots: boolean
+  str_save_prof: boolean; dex_save_prof: boolean; con_save_prof: boolean
+  int_save_prof: boolean; wis_save_prof: boolean; cha_save_prof: boolean
+}
+
+function saveProfDefaults(className: string) {
+  const profs = CLASS_SAVE_PROFS[className] ?? []
+  return {
+    str_save_prof: profs.includes('str'), dex_save_prof: profs.includes('dex'),
+    con_save_prof: profs.includes('con'), int_save_prof: profs.includes('int'),
+    wis_save_prof: profs.includes('wis'), cha_save_prof: profs.includes('cha'),
+  }
 }
 
 const defaultChar = (): NewChar => ({
@@ -32,6 +43,7 @@ const defaultChar = (): NewChar => ({
   str_score: '10', dex_score: '10', con_score: '10',
   int_score: '10', wis_score: '10', cha_score: '10',
   use_spell_slots: false,
+  ...saveProfDefaults('Fighter'),
 })
 
 export default function PartyPage() {
@@ -81,6 +93,7 @@ export default function PartyPage() {
         const subclasses = CLASSES[val as string] ?? []
         updated.subclass = subclasses[0] ?? ''
         updated.use_spell_slots = isCasterClass(val as string, subclasses[0] ?? null)
+        Object.assign(updated, saveProfDefaults(val as string))
         if (simplifiedCreation) {
           const sug = CLASS_ABILITY_SUGGESTIONS[val as string]
           const gear = CLASS_STARTER_GEAR[val as string]
@@ -125,6 +138,12 @@ export default function PartyPage() {
       cha_score: parseInt(newChar.cha_score) || 10,
       species: newChar.species || null,
       use_spell_slots: newChar.use_spell_slots,
+      str_save_prof: newChar.str_save_prof,
+      dex_save_prof: newChar.dex_save_prof,
+      con_save_prof: newChar.con_save_prof,
+      int_save_prof: newChar.int_save_prof,
+      wis_save_prof: newChar.wis_save_prof,
+      cha_save_prof: newChar.cha_save_prof,
     }
 
     const { data: char, error } = await supabase.from('characters').insert(charData).select().single()
