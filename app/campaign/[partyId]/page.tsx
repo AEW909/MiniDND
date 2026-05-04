@@ -1,7 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Swords, GripVertical, X, Plus } from 'lucide-react'
+import {
+  DndContext, closestCenter, DragEndEvent,
+  PointerSensor, TouchSensor, useSensor, useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { applyTheme, resetToGlobalTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
@@ -11,6 +19,17 @@ import {
 import { slotLevelLabel } from '@/lib/spell-slots'
 
 type Section = 'skills' | 'attacks' | 'spells' | 'inventory' | 'specials'
+
+interface InitEntry {
+  id: string
+  name: string
+  type: 'pc' | 'npc'
+  side: 'friend' | 'foe' | 'neutral'
+  desc: string
+  roll: number | null
+  charId?: string
+  dexMod: number
+}
 
 interface CharData {
   char: Character
@@ -37,6 +56,9 @@ export default function CampaignPage() {
   const [charData, setCharData] = useState<CharData[]>([])
   const [loading, setLoading] = useState(true)
   const [hpEdit, setHpEdit] = useState<{ charId: string; value: string } | null>(null)
+  const [showInit, setShowInit] = useState(false)
+  const [initEntries, setInitEntries] = useState<InitEntry[]>([])
+  const [showAddNpc, setShowAddNpc] = useState(false)
 
   useEffect(() => {
     load()
@@ -322,6 +344,66 @@ export default function CampaignPage() {
     await supabase.from('characters').update({ conditions: next }).eq('id', charId)
   }
 
+  function buildPcEntries() {
+    return charData.map(cd => ({
+      id: cd.char.id,
+      name: cd.char.name,
+      type: 'pc' as const,
+      side: 'neutral' as const,
+      desc: `${cd.char.class} · Lv ${cd.char.level}`,
+      roll: null,
+      charId: cd.char.id,
+      dexMod: abilityModifier(cd.char.dex_score),
+    }))
+  }
+
+  function openInit() {
+    setInitEntries(prev => {
+      if (prev.length === 0) return buildPcEntries()
+      const newPcs = charData
+        .filter(cd => !prev.some(e => e.charId === cd.char.id))
+        .map(cd => ({
+          id: cd.char.id,
+          name: cd.char.name,
+          type: 'pc' as const,
+          side: 'neutral' as const,
+          desc: `${cd.char.class} · Lv ${cd.char.level}`,
+          roll: null,
+          charId: cd.char.id,
+          dexMod: abilityModifier(cd.char.dex_score),
+        }))
+      return [...prev, ...newPcs]
+    })
+    setShowInit(true)
+  }
+
+  function rollInit(id: string) {
+    setInitEntries(prev => prev.map(e =>
+      e.id === id ? { ...e, roll: Math.floor(Math.random() * 20) + 1 + e.dexMod } : e
+    ))
+  }
+
+  function sortInitByRoll() {
+    setInitEntries(prev => [...prev].sort((a, b) => {
+      if (a.roll === null && b.roll === null) return 0
+      if (a.roll === null) return 1
+      if (b.roll === null) return -1
+      return b.roll - a.roll
+    }))
+  }
+
+  function addNpc(entry: Omit<InitEntry, 'id'>) {
+    setInitEntries(prev => [...prev, { ...entry, id: `npc-${Date.now()}` }])
+  }
+
+  function removeInitEntry(id: string) {
+    setInitEntries(prev => prev.filter(e => e.id !== id))
+  }
+
+  function clearInit() {
+    setInitEntries(buildPcEntries())
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-lg" style={{ color: 'var(--text-muted)' }}>
       Loading campaign…
@@ -346,7 +428,35 @@ export default function CampaignPage() {
         <span className="text-xs ml-auto px-2 py-1 rounded-lg" style={{ background: 'var(--surface-2)', color: 'var(--success)' }}>
           ● Live
         </span>
+        <button onClick={openInit} title="Initiative Tracker"
+          className="p-2 rounded-xl transition-colors"
+          style={{
+            background: showInit ? 'color-mix(in srgb, var(--gold) 20%, var(--surface-2))' : 'var(--surface-2)',
+            border: `1px solid ${showInit ? 'var(--gold)' : 'var(--border)'}`,
+            color: showInit ? 'var(--gold)' : 'var(--text-muted)',
+          }}>
+          <Swords size={18} />
+        </button>
       </header>
+
+      {showInit && (
+        <InitPanel
+          entries={initEntries}
+          onClose={() => setShowInit(false)}
+          onReorder={setInitEntries}
+          onRoll={rollInit}
+          onAddNpc={() => setShowAddNpc(true)}
+          onRemove={removeInitEntry}
+          onSort={sortInitByRoll}
+          onClear={clearInit}
+        />
+      )}
+      {showAddNpc && (
+        <AddNpcModal
+          onAdd={entry => { addNpc(entry); setShowAddNpc(false) }}
+          onClose={() => setShowAddNpc(false)}
+        />
+      )}
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full" style={{ minWidth: `${charData.length * 300}px` }}>
@@ -357,6 +467,8 @@ export default function CampaignPage() {
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
             const wisMod = abilityModifier(char.wis_score)
+            const initMod = abilityModifier(char.dex_score)
+            const initEntry = initEntries.find(e => e.charId === char.id)
             const perceptionSkill = skills.find(s => s.skill_name === 'Perception')
             const insightSkill = skills.find(s => s.skill_name === 'Insight')
             const passivePerc = 10 + wisMod + (perceptionSkill?.is_proficient ? (perceptionSkill.is_expert ? 2 : 1) * prof : 0)
@@ -518,6 +630,12 @@ export default function CampaignPage() {
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Speed </span>
                       <span className="font-bold">{char.speed}ft</span>
+                    </div>
+                    <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Init </span>
+                      <span className="font-bold" style={{ color: initEntry?.roll != null ? 'var(--gold)' : 'inherit' }}>
+                        {initEntry?.roll != null ? initEntry.roll : formatModifier(initMod)}
+                      </span>
                     </div>
                   </div>
                   <div className="flex gap-1.5 text-xs text-center mb-2">
@@ -899,6 +1017,224 @@ function Section({ label, isOpen, onToggle, children }: {
         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {isOpen && <div style={{ background: 'var(--background)' }}>{children}</div>}
+    </div>
+  )
+}
+
+function SortableInitRow({ entry, onRoll, onRemove }: {
+  entry: InitEntry; onRoll: () => void; onRemove: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
+  const dragStyle = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+
+  const c = entry.type === 'pc'
+    ? { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text)' }
+    : entry.side === 'foe'
+    ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#fca5a5' }
+    : entry.side === 'friend'
+    ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#86efac' }
+    : { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text-muted)' }
+
+  const sideEmoji = entry.type === 'npc'
+    ? entry.side === 'foe' ? '💀 ' : entry.side === 'friend' ? '🤝 ' : '❓ '
+    : '🎲 '
+
+  return (
+    <div ref={setNodeRef} style={{ ...dragStyle, background: c.bg, border: `1px solid ${c.border}`, borderRadius: '10px', marginBottom: '6px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button {...attributes} {...listeners} style={{ color: 'var(--text-muted)', cursor: 'grab', flexShrink: 0, touchAction: 'none', display: 'flex' }}>
+        <GripVertical size={14} />
+      </button>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: '13px', fontWeight: 600, color: c.nameColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {sideEmoji}{entry.name}
+        </p>
+        {entry.desc && (
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {entry.desc}
+          </p>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        {entry.roll !== null && (
+          <span style={{ fontSize: '15px', fontWeight: 800, minWidth: '20px', textAlign: 'right', color: c.nameColor }}>
+            {entry.roll}
+          </span>
+        )}
+        <button onClick={onRoll}
+          style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '6px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+          d20
+        </button>
+        <button onClick={onRemove} style={{ color: 'var(--text-muted)', display: 'flex', padding: '2px' }}>
+          <X size={12} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function InitPanel({ entries, onClose, onReorder, onRoll, onAddNpc, onRemove, onSort, onClear }: {
+  entries: InitEntry[]
+  onClose: () => void
+  onReorder: (entries: InitEntry[]) => void
+  onRoll: (id: string) => void
+  onAddNpc: () => void
+  onRemove: (id: string) => void
+  onSort: () => void
+  onClear: () => void
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = entries.findIndex(e => e.id === active.id)
+      const newIndex = entries.findIndex(e => e.id === over.id)
+      onReorder(arrayMove(entries, oldIndex, newIndex))
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', pointerEvents: 'none' }}>
+      <div style={{ flex: 1, pointerEvents: 'auto' }} onClick={onClose} />
+      <div style={{ width: '280px', height: '100%', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', pointerEvents: 'auto', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, background: 'var(--surface)' }}>
+          <Swords size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+          <span style={{ flex: 1, fontWeight: 700, fontSize: '15px', color: 'var(--gold)' }}>Initiative</span>
+          <button onClick={onSort}
+            style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
+            Sort ↓
+          </button>
+          <button onClick={onClose} style={{ color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={entries.map(e => e.id)} strategy={verticalListSortingStrategy}>
+              {entries.map(entry => (
+                <SortableInitRow key={entry.id} entry={entry}
+                  onRoll={() => onRoll(entry.id)}
+                  onRemove={() => onRemove(entry.id)} />
+              ))}
+            </SortableContext>
+          </DndContext>
+          {entries.length === 0 && (
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '24px' }}>
+              No combatants yet
+            </p>
+          )}
+        </div>
+
+        <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button onClick={onAddNpc}
+            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Plus size={14} /> Add NPC
+          </button>
+          <button onClick={onClear}
+            style={{ padding: '8px 12px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px' }}>
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AddNpcModal({ onAdd, onClose }: {
+  onAdd: (entry: Omit<InitEntry, 'id'>) => void
+  onClose: () => void
+}) {
+  const [side, setSide] = useState<'friend' | 'foe' | 'neutral'>('neutral')
+  const [name, setName] = useState('')
+  const [desc, setDesc] = useState('')
+  const [roll, setRoll] = useState('')
+
+  function handleAdd() {
+    if (!name.trim()) return
+    onAdd({
+      name: name.trim(),
+      type: 'npc',
+      side,
+      desc: desc.trim(),
+      roll: roll !== '' ? (parseInt(roll) || null) : null,
+      dexMod: 0,
+    })
+  }
+
+  const sideConfig = {
+    friend:  { emoji: '🤝', label: 'Friend',  activeBg: 'rgba(34,197,94,0.2)',   activeBorder: 'rgba(34,197,94,0.6)',   activeColor: '#86efac' },
+    neutral: { emoji: '❓', label: 'Neutral', activeBg: 'var(--surface-2)',       activeBorder: 'var(--gold)',            activeColor: 'var(--text)' },
+    foe:     { emoji: '💀', label: 'Foe',     activeBg: 'rgba(239,68,68,0.2)',    activeBorder: 'rgba(239,68,68,0.6)',    activeColor: '#fca5a5' },
+  } as const
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '320px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontWeight: 700, fontSize: '16px', color: 'var(--gold)' }}>Add NPC</h2>
+          <button onClick={onClose} style={{ display: 'flex', color: 'var(--text-muted)' }}><X size={18} /></button>
+        </div>
+
+        <div>
+          <p style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Side</p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {(['friend', 'neutral', 'foe'] as const).map(s => {
+              const cfg = sideConfig[s]
+              const active = side === s
+              return (
+                <button key={s} onClick={() => setSide(s)}
+                  style={{
+                    flex: 1, padding: '8px 4px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                    background: active ? cfg.activeBg : 'var(--surface-2)',
+                    border: `1.5px solid ${active ? cfg.activeBorder : 'var(--border)'}`,
+                    color: active ? cfg.activeColor : 'var(--text-muted)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                  }}>
+                  <span style={{ fontSize: '16px' }}>{cfg.emoji}</span>
+                  {cfg.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Name</label>
+          <input autoFocus value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            placeholder="Goblin Warrior"
+            style={{ display: 'block', width: '100%', marginTop: '6px', padding: '8px 10px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+
+        <div>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</label>
+          <input value={desc} onChange={e => setDesc(e.target.value)}
+            placeholder="Short description..."
+            style={{ display: 'block', width: '100%', marginTop: '6px', padding: '8px 10px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+
+        <div>
+          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Initiative Roll</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            <input type="number" value={roll} onChange={e => setRoll(e.target.value)}
+              placeholder="—"
+              style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '14px', outline: 'none' }} />
+            <button onClick={() => setRoll(String(Math.floor(Math.random() * 20) + 1))}
+              style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
+              d20
+            </button>
+          </div>
+        </div>
+
+        <button onClick={handleAdd}
+          style={{ padding: '10px', borderRadius: '10px', fontWeight: 700, fontSize: '14px', background: side === 'foe' ? 'rgba(239,68,68,0.8)' : side === 'friend' ? 'rgba(34,197,94,0.8)' : 'var(--gold)', color: '#1c1917' }}>
+          Add to Initiative
+        </button>
+      </div>
     </div>
   )
 }
