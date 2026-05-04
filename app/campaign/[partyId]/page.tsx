@@ -1009,7 +1009,7 @@ function SortableInitRow({ entry, isCurrent, onRemove }: {
     ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#ef4444' }
     : entry.side === 'friend'
     ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#4ade80' }
-    : { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text-muted)' }
+    : { bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.4)', nameColor: '#d97706' }
 
   const sideEmoji = entry.type === 'npc'
     ? entry.side === 'foe' ? '💀' : entry.side === 'friend' ? '🤝' : '❓'
