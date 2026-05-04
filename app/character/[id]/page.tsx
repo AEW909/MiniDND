@@ -20,6 +20,7 @@ import {
   getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { getSpellSlots, isCasterClass, slotLevelLabel } from '@/lib/spell-slots'
+import { applyTheme, resetToGlobalTheme } from '@/lib/theme'
 import Modal from '@/components/Modal'
 
 type Tab = 'overview' | 'skills' | 'attacks' | 'spells' | 'inventory' | 'other'
@@ -98,6 +99,11 @@ export default function CharacterPage() {
     setInventory(inv ?? [])
     setOther(ot ?? [])
     setLoading(false)
+    if (c?.party_id) {
+      const { data: party } = await supabase.from('parties').select('theme').eq('id', c.party_id).single()
+      if (party?.theme) applyTheme(party.theme as Parameters<typeof applyTheme>[0])
+      else resetToGlobalTheme()
+    }
   }
 
   async function updateHp(newHp: number) {

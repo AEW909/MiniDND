@@ -4,6 +4,7 @@ export interface Party {
   pin: string
   background_url: string | null
   icon_key: string | null
+  theme: string | null
   created_at: string
 }
 

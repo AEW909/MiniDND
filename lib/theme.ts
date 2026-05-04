@@ -8,8 +8,15 @@ export type Theme =
 
 const THEME_KEY = 'minidnd_theme'
 
-function applyTheme(t: Theme) {
+export function applyTheme(t: Theme) {
   document.documentElement.setAttribute('data-theme', t)
+}
+
+export function resetToGlobalTheme() {
+  try {
+    const stored = (localStorage.getItem(THEME_KEY) as Theme) || 'dungeon'
+    applyTheme(stored)
+  } catch { applyTheme('dungeon') }
 }
 
 export const THEMES: {

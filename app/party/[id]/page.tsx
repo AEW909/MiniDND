@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { Party, Character } from '@/lib/types'
 import { CLASSES, CLASS_NAMES, AVATARS, SKILLS, SPECIES, PARTY_ICONS, getAvatarEmoji, getPartyIcon, abilityModifier } from '@/lib/constants'
 import { getSpellSlots, isCasterClass } from '@/lib/spell-slots'
+import { applyTheme, resetToGlobalTheme, THEMES } from '@/lib/theme'
+import { ThemeSwatchPicker } from '@/app/page'
 import Modal from '@/components/Modal'
 
 const SESSION_KEY = 'minidnd_unlocked'
@@ -44,6 +46,7 @@ export default function PartyPage() {
   const [showEditParty, setShowEditParty] = useState(false)
   const [editName, setEditName] = useState('')
   const [editIconKey, setEditIconKey] = useState<string | null>(null)
+  const [editTheme, setEditTheme] = useState<string | null>(null)
   const [newChar, setNewChar] = useState<NewChar>(defaultChar())
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -63,6 +66,8 @@ export default function PartyPage() {
     setParty(p)
     setCharacters(c ?? [])
     setLoading(false)
+    if (p?.theme) applyTheme(p.theme as Parameters<typeof applyTheme>[0])
+    else resetToGlobalTheme()
   }
 
   function setField(key: keyof NewChar, val: string | boolean) {
@@ -137,8 +142,10 @@ export default function PartyPage() {
 
   async function savePartyDetails() {
     if (!editName.trim()) return
-    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey }).eq('id', id)
-    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey } : prev)
+    await supabase.from('parties').update({ name: editName.trim(), icon_key: editIconKey, theme: editTheme }).eq('id', id)
+    setParty(prev => prev ? { ...prev, name: editName.trim(), icon_key: editIconKey, theme: editTheme } : prev)
+    if (editTheme) applyTheme(editTheme as Parameters<typeof applyTheme>[0])
+    else resetToGlobalTheme()
     setShowEditParty(false)
   }
 
@@ -173,7 +180,7 @@ export default function PartyPage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--gold)' }}>{party?.name}</h1>
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{characters.length} adventurer{characters.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setShowEditParty(true) }}
+        <button onClick={() => { setEditName(party?.name ?? ''); setEditIconKey(party?.icon_key ?? null); setEditTheme(party?.theme ?? null); setShowEditParty(true) }}
           className="p-2 rounded-xl transition-opacity hover:opacity-80"
           title="Edit party"
           style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
@@ -260,6 +267,9 @@ export default function PartyPage() {
                   </button>
                 ))}
               </div>
+            </Field>
+            <Field label="Campaign theme">
+              <ThemeSwatchPicker value={editTheme} onChange={setEditTheme} />
             </Field>
             <button onClick={savePartyDetails}
               className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80"

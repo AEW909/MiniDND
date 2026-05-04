@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Plus, Eye, EyeOff, Trash2, Palette } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Party } from '@/lib/types'
-import { useTheme, THEMES } from '@/lib/theme'
+import { useTheme, THEMES, resetToGlobalTheme } from '@/lib/theme'
 import { getPartyIcon } from '@/lib/constants'
 import Modal from '@/components/Modal'
 
@@ -31,6 +31,7 @@ export default function PartiesPage() {
   const [newName, setNewName] = useState('')
   const [newPin, setNewPin] = useState('')
   const [newPinConfirm, setNewPinConfirm] = useState('')
+  const [newPartyTheme, setNewPartyTheme] = useState<string | null>(null)
   const [createError, setCreateError] = useState('')
   const [creating, setCreating] = useState(false)
 
@@ -41,6 +42,9 @@ export default function PartiesPage() {
   const pinRef = useRef<HTMLInputElement>(null)
 
   const [showThemePicker, setShowThemePicker] = useState(false)
+
+  // Always reset to the user's personal theme when landing on home
+  useEffect(() => { resetToGlobalTheme() }, [])
 
   useEffect(() => { loadParties() }, [])
   useEffect(() => { if (pinTarget) setTimeout(() => pinRef.current?.focus(), 100) }, [pinTarget])
@@ -59,12 +63,12 @@ export default function PartiesPage() {
     if (newPin !== newPinConfirm) return setCreateError('PINs do not match')
     setCreating(true)
     const { data, error } = await supabase
-      .from('parties').insert({ name: newName.trim(), pin: newPin }).select().single()
+      .from('parties').insert({ name: newName.trim(), pin: newPin, theme: newPartyTheme }).select().single()
     setCreating(false)
     if (error || !data) return setCreateError('Failed to create party')
     setUnlocked(data.id)
     setShowCreate(false)
-    setNewName(''); setNewPin(''); setNewPinConfirm('')
+    setNewName(''); setNewPin(''); setNewPinConfirm(''); setNewPartyTheme(null)
     router.push(`/party/${data.id}`)
   }
 
@@ -111,7 +115,7 @@ export default function PartiesPage() {
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
             <Palette size={16} /> Theme
           </button>
-          <button onClick={() => { setShowCreate(true); setCreateError('') }}
+          <button onClick={() => { setShowCreate(true); setCreateError(''); setNewPartyTheme(null) }}
             className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
             style={{ background: 'var(--gold)', color: '#1c1917' }}>
             <Plus size={18} /> New Party
@@ -139,6 +143,7 @@ export default function PartiesPage() {
             {parties.map(party => {
               const isUnlocked = unlocked[party.id]
               const hasBg = !!party.background_url
+              const partyThemeInfo = party.theme ? THEMES.find(t => t.id === party.theme) : null
               return (
                 <button key={party.id} onClick={() => { forceRender(n => n + 1); attemptEnter(party) }}
                   className="relative text-left rounded-2xl p-6 transition-all duration-150 hover:scale-105 active:scale-100 group cursor-pointer overflow-hidden"
@@ -166,6 +171,11 @@ export default function PartiesPage() {
                   <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                     {isUnlocked ? 'Tap to enter' : 'PIN required'}
                   </p>
+                  {partyThemeInfo && (
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      {partyThemeInfo.emoji} {partyThemeInfo.name} theme
+                    </p>
+                  )}
                 </button>
               )
             })}
@@ -173,7 +183,7 @@ export default function PartiesPage() {
         )}
       </main>
 
-      {/* Theme Picker */}
+      {/* Global Theme Picker */}
       {showThemePicker && (
         <Modal title="Choose Theme" onClose={() => setShowThemePicker(false)}>
           <div className="flex flex-col gap-3">
@@ -229,6 +239,9 @@ export default function PartiesPage() {
                 className="w-full px-4 py-3 rounded-xl text-base outline-none tracking-widest"
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
             </Field>
+            <Field label="Campaign theme (optional)">
+              <ThemeSwatchPicker value={newPartyTheme} onChange={setNewPartyTheme} />
+            </Field>
             {createError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{createError}</p>}
             <button onClick={createParty} disabled={creating}
               className="w-full py-3 rounded-xl font-bold text-base transition-opacity hover:opacity-80 disabled:opacity-50"
@@ -275,6 +288,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{label}</label>
       {children}
+    </div>
+  )
+}
+
+export function ThemeSwatchPicker({ value, onChange }: { value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2 mt-1">
+      <button
+        onClick={() => onChange(null)}
+        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+        style={{
+          background: value === null ? 'var(--gold)' : 'var(--surface-2)',
+          color: value === null ? '#1c1917' : 'var(--text-muted)',
+          border: `2px solid ${value === null ? 'var(--gold)' : 'transparent'}`,
+        }}>
+        None
+      </button>
+      {THEMES.map(t => (
+        <button key={t.id} onClick={() => onChange(t.id)}
+          title={t.name}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+          style={{
+            background: t.preview.bg,
+            color: t.preview.text,
+            border: `2px solid ${value === t.id ? t.preview.accent : 'rgba(128,128,128,0.25)'}`,
+            outline: value === t.id ? `2px solid ${t.preview.accent}` : 'none',
+            outlineOffset: '1px',
+          }}>
+          <span>{t.emoji}</span>
+          <span>{t.name}</span>
+        </button>
+      ))}
     </div>
   )
 }

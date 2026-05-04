@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react'
+import { applyTheme, resetToGlobalTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
@@ -58,10 +59,12 @@ export default function CampaignPage() {
 
   async function load() {
     setLoading(true)
-    const { data: party } = await supabase.from('parties').select('name, background_url, icon_key').eq('id', partyId).single()
+    const { data: party } = await supabase.from('parties').select('name, background_url, icon_key, theme').eq('id', partyId).single()
     setPartyName(party?.name ?? '')
     setPartyBg(party?.background_url ?? null)
     setPartyIconKey(party?.icon_key ?? null)
+    if (party?.theme) applyTheme(party.theme as Parameters<typeof applyTheme>[0])
+    else resetToGlobalTheme()
 
     const { data: chars } = await supabase.from('characters').select('*').eq('party_id', partyId).order('sort_order').order('created_at')
     if (!chars) { setLoading(false); return }
