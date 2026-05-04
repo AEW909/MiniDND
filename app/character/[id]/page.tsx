@@ -528,7 +528,7 @@ function OverviewTab({ char, prof, scores, skills, onSave }: {
               if (!cond) return null
               return (
                 <div key={key} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold"
-                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}>
                   {cond.emoji} {cond.label}
                 </div>
               )

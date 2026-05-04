@@ -26,9 +26,7 @@ interface InitEntry {
   type: 'pc' | 'npc'
   side: 'friend' | 'foe' | 'neutral'
   desc: string
-  roll: number | null
   charId?: string
-  dexMod: number
 }
 
 interface CharData {
@@ -351,9 +349,7 @@ export default function CampaignPage() {
       type: 'pc' as const,
       side: 'neutral' as const,
       desc: `${cd.char.class} · Lv ${cd.char.level}`,
-      roll: null,
       charId: cd.char.id,
-      dexMod: abilityModifier(cd.char.dex_score),
     }))
   }
 
@@ -368,28 +364,11 @@ export default function CampaignPage() {
           type: 'pc' as const,
           side: 'neutral' as const,
           desc: `${cd.char.class} · Lv ${cd.char.level}`,
-          roll: null,
           charId: cd.char.id,
-          dexMod: abilityModifier(cd.char.dex_score),
         }))
       return [...prev, ...newPcs]
     })
     setShowInit(true)
-  }
-
-  function rollInit(id: string) {
-    setInitEntries(prev => prev.map(e =>
-      e.id === id ? { ...e, roll: Math.floor(Math.random() * 20) + 1 + e.dexMod } : e
-    ))
-  }
-
-  function sortInitByRoll() {
-    setInitEntries(prev => [...prev].sort((a, b) => {
-      if (a.roll === null && b.roll === null) return 0
-      if (a.roll === null) return 1
-      if (b.roll === null) return -1
-      return b.roll - a.roll
-    }))
   }
 
   function addNpc(entry: Omit<InitEntry, 'id'>) {
@@ -444,10 +423,8 @@ export default function CampaignPage() {
           entries={initEntries}
           onClose={() => setShowInit(false)}
           onReorder={setInitEntries}
-          onRoll={rollInit}
           onAddNpc={() => setShowAddNpc(true)}
           onRemove={removeInitEntry}
-          onSort={sortInitByRoll}
           onClear={clearInit}
         />
       )}
@@ -468,7 +445,6 @@ export default function CampaignPage() {
             }
             const wisMod = abilityModifier(char.wis_score)
             const initMod = abilityModifier(char.dex_score)
-            const initEntry = initEntries.find(e => e.charId === char.id)
             const perceptionSkill = skills.find(s => s.skill_name === 'Perception')
             const insightSkill = skills.find(s => s.skill_name === 'Insight')
             const passivePerc = 10 + wisMod + (perceptionSkill?.is_proficient ? (perceptionSkill.is_expert ? 2 : 1) * prof : 0)
@@ -534,7 +510,7 @@ export default function CampaignPage() {
                             onClick={() => toggleCondition(char.id, key)}
                             title={`Remove ${cond.label}`}
                             className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold"
-                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>
+                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }}>
                             {cond.emoji} {cond.label}
                           </button>
                         )
@@ -555,7 +531,7 @@ export default function CampaignPage() {
                             style={{
                               background: active ? 'rgba(239,68,68,0.2)' : 'var(--surface)',
                               border: `1px solid ${active ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
-                              color: active ? '#fca5a5' : 'var(--text)',
+                              color: active ? '#ef4444' : 'var(--text)',
                             }}>
                             {cond.emoji} {cond.label}
                           </button>
@@ -633,9 +609,7 @@ export default function CampaignPage() {
                     </div>
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Init </span>
-                      <span className="font-bold" style={{ color: initEntry?.roll != null ? 'var(--gold)' : 'inherit' }}>
-                        {initEntry?.roll != null ? initEntry.roll : formatModifier(initMod)}
-                      </span>
+                      <span className="font-bold">{formatModifier(initMod)}</span>
                     </div>
                   </div>
                   <div className="flex gap-1.5 text-xs text-center mb-2">
@@ -1021,32 +995,35 @@ function Section({ label, isOpen, onToggle, children }: {
   )
 }
 
-function SortableInitRow({ entry, onRoll, onRemove }: {
-  entry: InitEntry; onRoll: () => void; onRemove: () => void
+function SortableInitRow({ entry, isCurrent, onRemove }: {
+  entry: InitEntry; isCurrent: boolean; onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entry.id })
   const dragStyle = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
-  const c = entry.type === 'pc'
+  const c = isCurrent
+    ? { bg: 'color-mix(in srgb, var(--gold) 15%, var(--surface))', border: 'var(--gold)', nameColor: 'var(--gold)' }
+    : entry.type === 'pc'
     ? { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text)' }
     : entry.side === 'foe'
-    ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#fca5a5' }
+    ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#ef4444' }
     : entry.side === 'friend'
-    ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#86efac' }
+    ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#4ade80' }
     : { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text-muted)' }
 
   const sideEmoji = entry.type === 'npc'
-    ? entry.side === 'foe' ? '💀 ' : entry.side === 'friend' ? '🤝 ' : '❓ '
-    : '🎲 '
+    ? entry.side === 'foe' ? '💀' : entry.side === 'friend' ? '🤝' : '❓'
+    : '⚔️'
 
   return (
-    <div ref={setNodeRef} style={{ ...dragStyle, background: c.bg, border: `1px solid ${c.border}`, borderRadius: '10px', marginBottom: '6px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div ref={setNodeRef} style={{ ...dragStyle, background: c.bg, border: `1.5px solid ${c.border}`, borderRadius: '10px', marginBottom: '6px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {isCurrent && <span style={{ fontSize: '12px', color: 'var(--gold)', flexShrink: 0 }}>▶</span>}
       <button {...attributes} {...listeners} style={{ color: 'var(--text-muted)', cursor: 'grab', flexShrink: 0, touchAction: 'none', display: 'flex' }}>
-        <GripVertical size={14} />
+        <GripVertical size={16} />
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: '13px', fontWeight: 600, color: c.nameColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {sideEmoji}{entry.name}
+          {sideEmoji} {entry.name}
         </p>
         {entry.desc && (
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1054,38 +1031,32 @@ function SortableInitRow({ entry, onRoll, onRemove }: {
           </p>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-        {entry.roll !== null && (
-          <span style={{ fontSize: '15px', fontWeight: 800, minWidth: '20px', textAlign: 'right', color: c.nameColor }}>
-            {entry.roll}
-          </span>
-        )}
-        <button onClick={onRoll}
-          style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '6px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-          d20
-        </button>
-        <button onClick={onRemove} style={{ color: 'var(--text-muted)', display: 'flex', padding: '2px' }}>
-          <X size={12} />
-        </button>
-      </div>
+      <button onClick={onRemove} style={{ color: 'var(--text-muted)', display: 'flex', padding: '2px', flexShrink: 0 }}>
+        <X size={12} />
+      </button>
     </div>
   )
 }
 
-function InitPanel({ entries, onClose, onReorder, onRoll, onAddNpc, onRemove, onSort, onClear }: {
+function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }: {
   entries: InitEntry[]
   onClose: () => void
   onReorder: (entries: InitEntry[]) => void
-  onRoll: (id: string) => void
   onAddNpc: () => void
   onRemove: (id: string) => void
-  onSort: () => void
   onClear: () => void
 }) {
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [round, setRound] = useState(1)
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 20 } }),
   )
+
+  useEffect(() => {
+    if (currentId && !entries.find(e => e.id === currentId)) setCurrentId(null)
+  }, [entries, currentId])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -1096,17 +1067,26 @@ function InitPanel({ entries, onClose, onReorder, onRoll, onAddNpc, onRemove, on
     }
   }
 
+  function handleNext() {
+    if (entries.length === 0) return
+    if (currentId === null) { setCurrentId(entries[0].id); return }
+    const idx = entries.findIndex(e => e.id === currentId)
+    if (idx === -1 || idx >= entries.length - 1) {
+      setCurrentId(entries[0].id)
+      setRound(r => r + 1)
+    } else {
+      setCurrentId(entries[idx + 1].id)
+    }
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 40, display: 'flex', pointerEvents: 'none' }}>
-      <div style={{ flex: 1, pointerEvents: 'auto' }} onClick={onClose} />
+      <div style={{ flex: 1, pointerEvents: 'none' }} />
       <div style={{ width: '280px', height: '100%', background: 'var(--surface)', borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', pointerEvents: 'auto', overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, background: 'var(--surface)' }}>
           <Swords size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-          <span style={{ flex: 1, fontWeight: 700, fontSize: '15px', color: 'var(--gold)' }}>Initiative</span>
-          <button onClick={onSort}
-            style={{ fontSize: '11px', padding: '3px 8px', borderRadius: '6px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)' }}>
-            Sort ↓
-          </button>
+          <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--gold)' }}>Initiative</span>
+          <span style={{ flex: 1, fontSize: '12px', color: 'var(--text-muted)', textAlign: 'right' }}>Round {round}</span>
           <button onClick={onClose} style={{ color: 'var(--text-muted)', display: 'flex', padding: '4px' }}>
             <X size={18} />
           </button>
@@ -1117,7 +1097,7 @@ function InitPanel({ entries, onClose, onReorder, onRoll, onAddNpc, onRemove, on
             <SortableContext items={entries.map(e => e.id)} strategy={verticalListSortingStrategy}>
               {entries.map(entry => (
                 <SortableInitRow key={entry.id} entry={entry}
-                  onRoll={() => onRoll(entry.id)}
+                  isCurrent={entry.id === currentId}
                   onRemove={() => onRemove(entry.id)} />
               ))}
             </SortableContext>
@@ -1131,11 +1111,15 @@ function InitPanel({ entries, onClose, onReorder, onRoll, onAddNpc, onRemove, on
 
         <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
           <button onClick={onAddNpc}
-            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <Plus size={14} /> Add NPC
+            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Plus size={13} /> Add NPC
+          </button>
+          <button onClick={handleNext}
+            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--gold)', color: '#1c1917', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            Next ▶
           </button>
           <button onClick={onClear}
-            style={{ padding: '8px 12px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px' }}>
+            style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px' }}>
             Clear
           </button>
         </div>
@@ -1151,24 +1135,16 @@ function AddNpcModal({ onAdd, onClose }: {
   const [side, setSide] = useState<'friend' | 'foe' | 'neutral'>('neutral')
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
-  const [roll, setRoll] = useState('')
 
   function handleAdd() {
     if (!name.trim()) return
-    onAdd({
-      name: name.trim(),
-      type: 'npc',
-      side,
-      desc: desc.trim(),
-      roll: roll !== '' ? (parseInt(roll) || null) : null,
-      dexMod: 0,
-    })
+    onAdd({ name: name.trim(), type: 'npc', side, desc: desc.trim() })
   }
 
   const sideConfig = {
     friend:  { emoji: '🤝', label: 'Friend',  activeBg: 'rgba(34,197,94,0.2)',   activeBorder: 'rgba(34,197,94,0.6)',   activeColor: '#86efac' },
     neutral: { emoji: '❓', label: 'Neutral', activeBg: 'var(--surface-2)',       activeBorder: 'var(--gold)',            activeColor: 'var(--text)' },
-    foe:     { emoji: '💀', label: 'Foe',     activeBg: 'rgba(239,68,68,0.2)',    activeBorder: 'rgba(239,68,68,0.6)',    activeColor: '#fca5a5' },
+    foe:     { emoji: '💀', label: 'Foe',     activeBg: 'rgba(239,68,68,0.2)',    activeBorder: 'rgba(239,68,68,0.6)',    activeColor: '#ef4444' },
   } as const
 
   return (
@@ -1215,19 +1191,6 @@ function AddNpcModal({ onAdd, onClose }: {
           <input value={desc} onChange={e => setDesc(e.target.value)}
             placeholder="Short description..."
             style={{ display: 'block', width: '100%', marginTop: '6px', padding: '8px 10px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
-        </div>
-
-        <div>
-          <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Initiative Roll</label>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-            <input type="number" value={roll} onChange={e => setRoll(e.target.value)}
-              placeholder="—"
-              style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '14px', outline: 'none' }} />
-            <button onClick={() => setRoll(String(Math.floor(Math.random() * 20) + 1))}
-              style={{ padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>
-              d20
-            </button>
-          </div>
         </div>
 
         <button onClick={handleAdd}
