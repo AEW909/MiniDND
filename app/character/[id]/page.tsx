@@ -57,6 +57,8 @@ export default function CharacterPage() {
   const [hpInput, setHpInput] = useState('')
   const [editingMaxHp, setEditingMaxHp] = useState(false)
   const [maxHpInput, setMaxHpInput] = useState('')
+  const [editingStat, setEditingStat] = useState<'ac' | 'speed' | 'level' | null>(null)
+  const [statInput, setStatInput] = useState('')
 
   // Add modals
   const [showAddAttack, setShowAddAttack] = useState(false)
@@ -118,6 +120,24 @@ export default function CharacterPage() {
     const m = Math.max(1, newMax)
     await supabase.from('characters').update({ max_hp: m, current_hp: Math.min(char.current_hp, m) }).eq('id', id)
     setChar(prev => prev ? { ...prev, max_hp: m, current_hp: Math.min(prev.current_hp, m) } : prev)
+  }
+
+  async function toggleSavingThrow(ab: string) {
+    if (!char) return
+    const key = `${ab.toLowerCase()}_save_prof` as keyof Character
+    const newVal = !char[key]
+    await supabase.from('characters').update({ [key]: newVal }).eq('id', id)
+    setChar(prev => prev ? { ...prev, [key]: newVal } : prev)
+  }
+
+  async function updateStat(stat: 'ac' | 'speed' | 'level', raw: string) {
+    if (!char) return
+    const val = parseInt(raw) || 0
+    const clamped = stat === 'level' ? Math.max(1, Math.min(20, val))
+      : stat === 'ac' ? Math.max(1, val)
+      : Math.max(0, val)
+    await supabase.from('characters').update({ [stat]: clamped }).eq('id', id)
+    setChar(prev => prev ? { ...prev, [stat]: clamped } : prev)
   }
 
   async function updateChar(updates: { level?: number; max_hp?: number; speed?: number; species?: string | null }) {
@@ -308,7 +328,9 @@ export default function CharacterPage() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {tab === 'overview' && (
-          <OverviewTab char={char} prof={prof} scores={scores} />
+          <OverviewTab char={char} prof={prof} scores={scores}
+            onEditStat={(s) => { setEditingStat(s); setStatInput(String(char[s] ?? 10)) }}
+            onToggleSave={toggleSavingThrow} />
         )}
         {tab === 'skills' && (
           <SkillsTab skills={skills} scores={scores} prof={prof} onToggle={toggleSkill} />
@@ -376,6 +398,24 @@ export default function CharacterPage() {
         </Modal>
       )}
 
+      {editingStat && (
+        <Modal
+          title={editingStat === 'ac' ? 'Set AC' : editingStat === 'speed' ? 'Set Speed (ft)' : 'Set Level'}
+          onClose={() => setEditingStat(null)}>
+          <div className="flex flex-col gap-4">
+            <input autoFocus type="number" value={statInput}
+              onChange={e => setStatInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && (updateStat(editingStat, statInput), setEditingStat(null))}
+              className="w-full px-4 py-4 rounded-xl text-center text-3xl font-bold outline-none"
+              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+            <button onClick={() => { updateStat(editingStat, statInput); setEditingStat(null) }}
+              className="w-full py-3 rounded-xl font-bold" style={{ background: 'var(--gold)', color: '#1c1917' }}>
+              Save
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {showAddAttack && (
         <AddAttackModal onClose={() => setShowAddAttack(false)}
           onSave={async (data) => {
@@ -434,15 +474,19 @@ export default function CharacterPage() {
 
 // ─── Overview Tab ────────────────────────────────────────────────────────────
 
-function OverviewTab({ char, prof, scores }: { char: Character; prof: number; scores: Record<string, number> }) {
+function OverviewTab({ char, prof, scores, onEditStat, onToggleSave }: {
+  char: Character; prof: number; scores: Record<string, number>
+  onEditStat: (s: 'ac' | 'speed' | 'level') => void
+  onToggleSave: (ab: string) => void
+}) {
   return (
     <div className="p-4 flex flex-col gap-4">
-      {/* Core stats strip */}
+      {/* Core stats strip — tap to edit */}
       <div className="grid grid-cols-4 gap-3">
-        <StatPill label="AC" value={String(char.ac ?? 10)} />
+        <StatPill label="AC" value={String(char.ac ?? 10)} onClick={() => onEditStat('ac')} />
         <StatPill label="Prof" value={`+${prof}`} />
-        <StatPill label="Speed" value={`${char.speed}ft`} />
-        <StatPill label="Level" value={String(char.level)} />
+        <StatPill label="Speed" value={`${char.speed}ft`} onClick={() => onEditStat('speed')} />
+        <StatPill label="Level" value={String(char.level)} onClick={() => onEditStat('level')} />
       </div>
 
       {/* Ability scores */}
@@ -457,39 +501,50 @@ function OverviewTab({ char, prof, scores }: { char: Character; prof: number; sc
                 style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
                 <p className="text-xs font-bold mb-1" style={{ color: 'var(--gold)' }}>{ab}</p>
                 <p className="text-2xl font-black">{score}</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>
-                  {mod >= 0 ? '+' : ''}{mod}
-                </p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>{formatModifier(mod)}</p>
               </div>
             )
           })}
         </div>
       </div>
 
-      {/* Saving throws derived */}
+      {/* Saving throws with proficiency toggles */}
       <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <h2 className="text-sm font-bold mb-3 uppercase tracking-wider" style={{ color: 'var(--gold)' }}>
-          Saving Throws <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>(base modifier only)</span>
-        </h2>
-        <div className="grid grid-cols-2 gap-2">
-          {Object.entries(scores).map(([ab, score]) => (
-            <div key={ab} className="flex items-center justify-between px-3 py-2 rounded-xl"
-              style={{ background: 'var(--surface-2)' }}>
-              <span className="text-sm font-medium">{ABILITY_LABELS[ab]}</span>
-              <span className="text-sm font-bold" style={{ color: 'var(--gold)' }}>
-                {formatModifier(abilityModifier(score))}
-              </span>
-            </div>
-          ))}
+        <h2 className="text-sm font-bold mb-3 uppercase tracking-wider" style={{ color: 'var(--gold)' }}>Saving Throws</h2>
+        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Tap the circle to toggle proficiency</p>
+        <div className="flex flex-col gap-1">
+          {ABILITY_KEYS.map(({ key, ab }) => {
+            const score = (char as unknown as Record<string, number>)[key]
+            const baseMod = abilityModifier(score)
+            const profKey = `${ab.toLowerCase()}_save_prof` as keyof Character
+            const isProf = !!char[profKey]
+            const total = baseMod + (isProf ? prof : 0)
+            return (
+              <div key={ab} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                style={{ background: 'var(--surface-2)' }}>
+                <button onClick={() => onToggleSave(ab)}
+                  className="w-5 h-5 rounded-full shrink-0 transition-all"
+                  style={{
+                    background: isProf ? 'var(--gold)' : 'transparent',
+                    border: `2px solid ${isProf ? 'var(--gold)' : 'var(--border)'}`,
+                  }} />
+                <span className="flex-1 text-sm font-medium">{ABILITY_LABELS[ab]}</span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: isProf ? 'var(--gold)' : 'var(--text-muted)' }}>
+                  {formatModifier(total)}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
   )
 }
 
-function StatPill({ label, value }: { label: string; value: string }) {
+function StatPill({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) {
   return (
-    <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+    <div onClick={onClick} className="rounded-xl p-3 text-center"
+      style={{ background: 'var(--surface)', border: `1px solid ${onClick ? 'var(--gold)' : 'var(--border)'}`, cursor: onClick ? 'pointer' : 'default', opacity: 1 }}>
       <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
       <p className="text-xl font-black" style={{ color: 'var(--gold)' }}>{value}</p>
     </div>

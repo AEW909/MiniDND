@@ -471,16 +471,18 @@ export default function CampaignPage() {
                       </button>
                       {skillsOpen && (
                         simplifiedSkills ? (
-                          // Compact: ability header, then one row per proficiency tier with shared modifier
+                          // Compact: ability header + inline save, then skills by tier
                           <div className="px-3 py-2 space-y-3">
                             {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
                               const abSkills = skills.filter(s => s.ability === ab)
                               if (!abSkills.length) return null
                               const abMod = abilityModifier(scores[ab])
+                              const saveProf = !!(char as unknown as Record<string,boolean>)[`${ab.toLowerCase()}_save_prof`]
+                              const saveMod = abMod + (saveProf ? prof : 0)
                               const tiers = [
-                                { key: 'expert',    icon: '◈', color: 'var(--gold-light)', skills: abSkills.filter(s => s.is_expert),                        mod: abMod + 2 * prof },
-                                { key: 'prof',      icon: '●', color: 'var(--gold)',       skills: abSkills.filter(s => s.is_proficient && !s.is_expert),     mod: abMod + prof },
-                                { key: 'none',      icon: '○', color: 'var(--text-muted)', skills: abSkills.filter(s => !s.is_proficient),                   mod: abMod },
+                                { key: 'expert', icon: '◈', color: 'var(--gold-light)', skills: abSkills.filter(s => s.is_expert),                    mod: abMod + 2 * prof },
+                                { key: 'prof',   icon: '●', color: 'var(--gold)',       skills: abSkills.filter(s => s.is_proficient && !s.is_expert), mod: abMod + prof },
+                                { key: 'none',   icon: '○', color: 'var(--text-muted)', skills: abSkills.filter(s => !s.is_proficient),               mod: abMod },
                               ].filter(t => t.skills.length > 0)
                               return (
                                 <div key={ab}>
@@ -488,6 +490,9 @@ export default function CampaignPage() {
                                     <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</span>
                                     <span className="text-xs font-semibold">{scores[ab]}</span>
                                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({formatModifier(abMod)})</span>
+                                    <span className="ml-auto text-xs whitespace-nowrap" style={{ color: saveProf ? 'var(--gold)' : 'var(--text-muted)' }}>
+                                      {ab} save {formatModifier(saveMod)}
+                                    </span>
                                   </div>
                                   <div className="pl-2 space-y-0.5">
                                     {tiers.map(tier => (
@@ -507,15 +512,20 @@ export default function CampaignPage() {
                             })}
                           </div>
                         ) : skillsSort === 'ability' ? (
-                          // Grouped by ability, no prominent headers
+                          // Grouped by ability with save in header
                           ['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
                             const abSkills = skills.filter(s => s.ability === ab)
                             if (!abSkills.length) return null
                             const abMod = abilityModifier(scores[ab])
+                            const saveProf = !!(char as unknown as Record<string,boolean>)[`${ab.toLowerCase()}_save_prof`]
+                            const saveMod = abMod + (saveProf ? prof : 0)
                             return (
                               <div key={ab}>
-                                <div className="px-4 py-1" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                                <div className="flex items-center justify-between px-4 py-1" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
                                   <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>{ab}</span>
+                                  <span className="text-xs" style={{ color: saveProf ? 'var(--gold)' : 'var(--text-muted)' }}>
+                                    save {formatModifier(saveMod)}
+                                  </span>
                                 </div>
                                 {abSkills.map(skill => {
                                   const mult = skill.is_expert ? 2 : skill.is_proficient ? 1 : 0
@@ -534,21 +544,42 @@ export default function CampaignPage() {
                             )
                           })
                         ) : (
-                          // Alphabetical
-                          [...skills].sort((a, b) => a.skill_name.localeCompare(b.skill_name)).map(skill => {
-                            const base = abilityModifier(scores[skill.ability] ?? 10)
-                            const mult = skill.is_expert ? 2 : skill.is_proficient ? 1 : 0
-                            const mod = base + mult * prof
-                            const dot = skill.is_expert ? 'var(--gold-light)' : skill.is_proficient ? 'var(--gold)' : 'var(--surface-2)'
-                            return (
-                              <div key={skill.id} className="flex items-center gap-2 px-4 py-1.5"
-                                style={{ borderBottom: '1px solid var(--border)' }}>
-                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dot, border: `1.5px solid ${dot === 'var(--surface-2)' ? 'var(--border)' : dot}` }} />
-                                <span className="flex-1 text-xs">{skill.skill_name}</span>
-                                <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--gold)' }}>{formatModifier(mod)}</span>
+                          // Alphabetical — saves as mini header block, then skills
+                          <>
+                            <div style={{ borderBottom: '1px solid var(--border)' }}>
+                              <div className="px-4 py-1" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+                                <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>SAVES</span>
                               </div>
-                            )
-                          })
+                              <div className="grid grid-cols-2">
+                                {['STR','DEX','CON','INT','WIS','CHA'].map(ab => {
+                                  const abMod = abilityModifier(scores[ab])
+                                  const saveProf = !!(char as unknown as Record<string,boolean>)[`${ab.toLowerCase()}_save_prof`]
+                                  const saveMod = abMod + (saveProf ? prof : 0)
+                                  return (
+                                    <div key={ab} className="flex items-center gap-2 px-4 py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
+                                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: saveProf ? 'var(--gold)' : 'var(--surface-2)', border: `1.5px solid ${saveProf ? 'var(--gold)' : 'var(--border)'}` }} />
+                                      <span className="flex-1 text-xs">{ab} save</span>
+                                      <span className="text-xs font-bold tabular-nums" style={{ color: saveProf ? 'var(--gold)' : 'var(--text-muted)' }}>{formatModifier(saveMod)}</span>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                            {[...skills].sort((a, b) => a.skill_name.localeCompare(b.skill_name)).map(skill => {
+                              const base = abilityModifier(scores[skill.ability] ?? 10)
+                              const mult = skill.is_expert ? 2 : skill.is_proficient ? 1 : 0
+                              const mod = base + mult * prof
+                              const dot = skill.is_expert ? 'var(--gold-light)' : skill.is_proficient ? 'var(--gold)' : 'var(--surface-2)'
+                              return (
+                                <div key={skill.id} className="flex items-center gap-2 px-4 py-1.5"
+                                  style={{ borderBottom: '1px solid var(--border)' }}>
+                                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: dot, border: `1.5px solid ${dot === 'var(--surface-2)' ? 'var(--border)' : dot}` }} />
+                                  <span className="flex-1 text-xs">{skill.skill_name}</span>
+                                  <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--gold)' }}>{formatModifier(mod)}</span>
+                                </div>
+                              )
+                            })}
+                          </>
                         )
                       )}
                     </div>

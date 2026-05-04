@@ -32,6 +32,12 @@ export interface Character {
   cha_score: number
   species: string | null
   use_spell_slots: boolean
+  str_save_prof: boolean
+  dex_save_prof: boolean
+  con_save_prof: boolean
+  int_save_prof: boolean
+  wis_save_prof: boolean
+  cha_save_prof: boolean
   sort_order: number
   created_at: string
 }
