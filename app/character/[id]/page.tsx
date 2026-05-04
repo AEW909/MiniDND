@@ -16,7 +16,7 @@ import {
   CharacterSpellSlot, CharacterInventory, CharacterOther,
 } from '@/lib/types'
 import {
-  CLASSES, AVATARS, DAMAGE_TYPES, ABILITY_LABELS, SPECIES,
+  CLASSES, AVATARS, DAMAGE_TYPES, ABILITY_LABELS, SPECIES, CONDITIONS,
   getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier,
 } from '@/lib/constants'
 import { getSpellSlots, isCasterClass, slotLevelLabel } from '@/lib/spell-slots'
@@ -505,6 +505,25 @@ function OverviewTab({ char, prof, scores, onSave }: {
           })}
         </div>
       </div>
+
+      {/* Conditions */}
+      {(char.conditions ?? []).length > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <h2 className="text-sm font-bold mb-3 uppercase tracking-wider" style={{ color: 'var(--danger, #ef4444)' }}>Conditions</h2>
+          <div className="flex flex-wrap gap-2">
+            {(char.conditions ?? []).map(key => {
+              const cond = CONDITIONS.find(c => c.key === key)
+              if (!cond) return null
+              return (
+                <div key={key} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-semibold"
+                  style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>
+                  {cond.emoji} {cond.label}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {showStatsEdit && (
         <StatsEditModal char={char} prof={prof}

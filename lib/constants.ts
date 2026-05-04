@@ -309,3 +309,16 @@ export const CLASS_STARTER_GEAR: Record<string, {
     inventory: [{ name: 'Spellbook', quantity: 1 }, { name: 'Arcane Focus', quantity: 1 }, { name: 'Backpack', quantity: 1 }, { name: 'Rations', quantity: 5 }],
   },
 }
+
+export const CONDITIONS = [
+  { key: 'poisoned',    emoji: '🤢', label: 'Poisoned' },
+  { key: 'blinded',     emoji: '🙈', label: 'Blinded' },
+  { key: 'stunned',     emoji: '💫', label: 'Stunned' },
+  { key: 'prone',       emoji: '🧎', label: 'Prone' },
+  { key: 'frightened',  emoji: '😨', label: 'Frightened' },
+  { key: 'restrained',  emoji: '⛓️', label: 'Restrained' },
+  { key: 'paralyzed',   emoji: '😴', label: 'Paralyzed' },
+  { key: 'unconscious', emoji: '💀', label: 'Unconscious' },
+  { key: 'charmed',     emoji: '💕', label: 'Charmed' },
+  { key: 'invisible',   emoji: '👻', label: 'Invisible' },
+]

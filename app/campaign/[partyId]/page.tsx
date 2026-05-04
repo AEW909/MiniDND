@@ -6,7 +6,7 @@ import { applyTheme, resetToGlobalTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
-  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier, getPartyIcon, ABILITY_EMOJI,
+  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier, getPartyIcon, ABILITY_EMOJI, CONDITIONS,
 } from '@/lib/constants'
 import { slotLevelLabel } from '@/lib/spell-slots'
 
@@ -23,6 +23,7 @@ interface CharData {
   expanded: Section | null
   restOpen: boolean
   skillsOpen: boolean
+  conditionsOpen: boolean
 }
 
 export default function CampaignPage() {
@@ -97,6 +98,7 @@ export default function CampaignPage() {
       expanded: null,
       restOpen: false,
       skillsOpen: true,
+      conditionsOpen: false,
     })))
     setLoading(false)
   }
@@ -301,6 +303,25 @@ export default function CampaignPage() {
     ))
   }
 
+  function toggleConditionsOpen(charId: string) {
+    setCharData(prev => prev.map(cd =>
+      cd.char.id === charId ? { ...cd, conditionsOpen: !cd.conditionsOpen } : cd
+    ))
+  }
+
+  async function toggleCondition(charId: string, conditionKey: string) {
+    const cd = charData.find(c => c.char.id === charId)
+    if (!cd) return
+    const current = cd.char.conditions ?? []
+    const next = current.includes(conditionKey)
+      ? current.filter(c => c !== conditionKey)
+      : [...current, conditionKey]
+    setCharData(prev => prev.map(c =>
+      c.char.id === charId ? { ...c, char: { ...c.char, conditions: next } } : c
+    ))
+    await supabase.from('characters').update({ conditions: next }).eq('id', charId)
+  }
+
   if (loading) return (
     <div className="flex items-center justify-center h-screen text-lg" style={{ color: 'var(--text-muted)' }}>
       Loading campaign…
@@ -329,7 +350,7 @@ export default function CampaignPage() {
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full" style={{ minWidth: `${charData.length * 300}px` }}>
-          {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen, skillsOpen }) => {
+          {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen, skillsOpen, conditionsOpen }) => {
             const prof = proficiencyBonus(char.level)
             const scores: Record<string, number> = {
               STR: char.str_score, DEX: char.dex_score, CON: char.con_score,
@@ -361,7 +382,7 @@ export default function CampaignPage() {
 
                 {/* Character header */}
                 <div className="sticky top-0 z-10 p-4" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
-                  <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-3 mb-2">
                     <span className="text-4xl">{getAvatarEmoji(char.avatar_key)}</span>
                     <div className="flex-1 min-w-0">
                       <button onClick={() => router.push(`/character/${char.id}`)}
@@ -372,7 +393,58 @@ export default function CampaignPage() {
                         {char.class} · Lv {char.level}
                       </p>
                     </div>
+                    <button
+                      onClick={() => toggleConditionsOpen(char.id)}
+                      title="Conditions"
+                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base transition-all"
+                      style={{
+                        background: conditionsOpen ? 'color-mix(in srgb, var(--gold) 20%, var(--surface-2))' : 'var(--surface-2)',
+                        border: `1px solid ${conditionsOpen ? 'var(--gold)' : 'var(--border)'}`,
+                      }}>
+                      ⚠️
+                    </button>
                   </div>
+
+                  {/* Active condition badges */}
+                  {(char.conditions ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {(char.conditions ?? []).map(key => {
+                        const cond = CONDITIONS.find(c => c.key === key)
+                        if (!cond) return null
+                        return (
+                          <button key={key}
+                            onClick={() => toggleCondition(char.id, key)}
+                            title={`Remove ${cond.label}`}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold"
+                            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5' }}>
+                            {cond.emoji} {cond.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Condition picker */}
+                  {conditionsOpen && (
+                    <div className="mb-2 p-2 rounded-xl flex flex-wrap gap-1.5"
+                      style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                      {CONDITIONS.map(cond => {
+                        const active = (char.conditions ?? []).includes(cond.key)
+                        return (
+                          <button key={cond.key}
+                            onClick={() => toggleCondition(char.id, cond.key)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all"
+                            style={{
+                              background: active ? 'rgba(239,68,68,0.2)' : 'var(--surface)',
+                              border: `1px solid ${active ? 'rgba(239,68,68,0.5)' : 'var(--border)'}`,
+                              color: active ? '#fca5a5' : 'var(--text)',
+                            }}>
+                            {cond.emoji} {cond.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
 
                   {/* HP bar + controls */}
                   <div className="flex items-center gap-2 mb-1">

@@ -38,6 +38,7 @@ export interface Character {
   int_save_prof: boolean
   wis_save_prof: boolean
   cha_save_prof: boolean
+  conditions: string[]
   sort_order: number
   created_at: string
 }
