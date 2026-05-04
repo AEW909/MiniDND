@@ -57,8 +57,6 @@ export default function CharacterPage() {
   const [hpInput, setHpInput] = useState('')
   const [editingMaxHp, setEditingMaxHp] = useState(false)
   const [maxHpInput, setMaxHpInput] = useState('')
-  const [editingStat, setEditingStat] = useState<'ac' | 'speed' | 'level' | null>(null)
-  const [statInput, setStatInput] = useState('')
 
   // Add modals
   const [showAddAttack, setShowAddAttack] = useState(false)
@@ -122,25 +120,13 @@ export default function CharacterPage() {
     setChar(prev => prev ? { ...prev, max_hp: m, current_hp: Math.min(prev.current_hp, m) } : prev)
   }
 
-  async function toggleSavingThrow(ab: string) {
-    if (!char) return
-    const key = `${ab.toLowerCase()}_save_prof` as keyof Character
-    const newVal = !char[key]
-    await supabase.from('characters').update({ [key]: newVal }).eq('id', id)
-    setChar(prev => prev ? { ...prev, [key]: newVal } : prev)
-  }
-
-  async function updateStat(stat: 'ac' | 'speed' | 'level', raw: string) {
-    if (!char) return
-    const val = parseInt(raw) || 0
-    const clamped = stat === 'level' ? Math.max(1, Math.min(20, val))
-      : stat === 'ac' ? Math.max(1, val)
-      : Math.max(0, val)
-    await supabase.from('characters').update({ [stat]: clamped }).eq('id', id)
-    setChar(prev => prev ? { ...prev, [stat]: clamped } : prev)
-  }
-
-  async function updateChar(updates: { level?: number; max_hp?: number; speed?: number; species?: string | null }) {
+  async function updateChar(updates: {
+    level?: number; max_hp?: number; speed?: number; ac?: number; species?: string | null
+    str_score?: number; dex_score?: number; con_score?: number
+    int_score?: number; wis_score?: number; cha_score?: number
+    str_save_prof?: boolean; dex_save_prof?: boolean; con_save_prof?: boolean
+    int_save_prof?: boolean; wis_save_prof?: boolean; cha_save_prof?: boolean
+  }) {
     if (!char) return
     await supabase.from('characters').update(updates).eq('id', id)
     setChar(prev => prev ? { ...prev, ...updates } : prev)
@@ -328,9 +314,7 @@ export default function CharacterPage() {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto">
         {tab === 'overview' && (
-          <OverviewTab char={char} prof={prof} scores={scores}
-            onEditStat={(s) => { setEditingStat(s); setStatInput(String(char[s] ?? 10)) }}
-            onToggleSave={toggleSavingThrow} />
+          <OverviewTab char={char} prof={prof} scores={scores} onSave={updateChar} />
         )}
         {tab === 'skills' && (
           <SkillsTab skills={skills} scores={scores} prof={prof} onToggle={toggleSkill} />
@@ -398,24 +382,6 @@ export default function CharacterPage() {
         </Modal>
       )}
 
-      {editingStat && (
-        <Modal
-          title={editingStat === 'ac' ? 'Set AC' : editingStat === 'speed' ? 'Set Speed (ft)' : 'Set Level'}
-          onClose={() => setEditingStat(null)}>
-          <div className="flex flex-col gap-4">
-            <input autoFocus type="number" value={statInput}
-              onChange={e => setStatInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (updateStat(editingStat, statInput), setEditingStat(null))}
-              className="w-full px-4 py-4 rounded-xl text-center text-3xl font-bold outline-none"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }} />
-            <button onClick={() => { updateStat(editingStat, statInput); setEditingStat(null) }}
-              className="w-full py-3 rounded-xl font-bold" style={{ background: 'var(--gold)', color: '#1c1917' }}>
-              Save
-            </button>
-          </div>
-        </Modal>
-      )}
-
       {showAddAttack && (
         <AddAttackModal onClose={() => setShowAddAttack(false)}
           onSave={async (data) => {
@@ -474,19 +440,26 @@ export default function CharacterPage() {
 
 // ─── Overview Tab ────────────────────────────────────────────────────────────
 
-function OverviewTab({ char, prof, scores, onEditStat, onToggleSave }: {
+function OverviewTab({ char, prof, scores, onSave }: {
   char: Character; prof: number; scores: Record<string, number>
-  onEditStat: (s: 'ac' | 'speed' | 'level') => void
-  onToggleSave: (ab: string) => void
+  onSave: (u: object) => Promise<void>
 }) {
+  const [showStatsEdit, setShowStatsEdit] = useState(false)
   return (
     <div className="p-4 flex flex-col gap-4">
-      {/* Core stats strip — tap to edit */}
+      {/* Core stats strip */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Stats</span>
+        <button onClick={() => setShowStatsEdit(true)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
+          style={{ color: 'var(--text-muted)', background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <Pencil size={11} /> Edit
+        </button>
+      </div>
       <div className="grid grid-cols-4 gap-3">
-        <StatPill label="AC" value={String(char.ac ?? 10)} onClick={() => onEditStat('ac')} />
+        <StatPill label="AC" value={String(char.ac ?? 10)} />
         <StatPill label="Prof" value={`+${prof}`} />
-        <StatPill label="Speed" value={`${char.speed}ft`} onClick={() => onEditStat('speed')} />
-        <StatPill label="Level" value={String(char.level)} onClick={() => onEditStat('level')} />
+        <StatPill label="Speed" value={`${char.speed}ft`} />
+        <StatPill label="Level" value={String(char.level)} />
       </div>
 
       {/* Ability scores */}
@@ -508,10 +481,9 @@ function OverviewTab({ char, prof, scores, onEditStat, onToggleSave }: {
         </div>
       </div>
 
-      {/* Saving throws with proficiency toggles */}
+      {/* Saving throws — display only, edit via pencil */}
       <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <h2 className="text-sm font-bold mb-3 uppercase tracking-wider" style={{ color: 'var(--gold)' }}>Saving Throws</h2>
-        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>Tap the circle to toggle proficiency</p>
         <div className="flex flex-col gap-1">
           {ABILITY_KEYS.map(({ key, ab }) => {
             const score = (char as unknown as Record<string, number>)[key]
@@ -522,12 +494,8 @@ function OverviewTab({ char, prof, scores, onEditStat, onToggleSave }: {
             return (
               <div key={ab} className="flex items-center gap-3 px-3 py-2 rounded-xl"
                 style={{ background: 'var(--surface-2)' }}>
-                <button onClick={() => onToggleSave(ab)}
-                  className="w-5 h-5 rounded-full shrink-0 transition-all"
-                  style={{
-                    background: isProf ? 'var(--gold)' : 'transparent',
-                    border: `2px solid ${isProf ? 'var(--gold)' : 'var(--border)'}`,
-                  }} />
+                <div className="w-4 h-4 rounded-full shrink-0"
+                  style={{ background: isProf ? 'var(--gold)' : 'transparent', border: `2px solid ${isProf ? 'var(--gold)' : 'var(--border)'}` }} />
                 <span className="flex-1 text-sm font-medium">{ABILITY_LABELS[ab]}</span>
                 <span className="text-sm font-bold tabular-nums" style={{ color: isProf ? 'var(--gold)' : 'var(--text-muted)' }}>
                   {formatModifier(total)}
@@ -537,14 +505,147 @@ function OverviewTab({ char, prof, scores, onEditStat, onToggleSave }: {
           })}
         </div>
       </div>
+
+      {showStatsEdit && (
+        <StatsEditModal char={char} prof={prof}
+          onClose={() => setShowStatsEdit(false)}
+          onSave={async (u) => { await onSave(u); setShowStatsEdit(false) }} />
+      )}
     </div>
   )
 }
 
-function StatPill({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) {
+function StatsEditModal({ char, prof, onClose, onSave }: {
+  char: Character; prof: number
+  onClose: () => void
+  onSave: (u: object) => Promise<void>
+}) {
+  const [level, setLevel] = useState(String(char.level))
+  const [ac, setAc] = useState(String(char.ac ?? 10))
+  const [speed, setSpeed] = useState(String(char.speed))
+  const [maxHp, setMaxHp] = useState(String(char.max_hp))
+  const [str, setStr] = useState(String(char.str_score))
+  const [dex, setDex] = useState(String(char.dex_score))
+  const [con, setCon] = useState(String(char.con_score))
+  const [int_, setInt] = useState(String(char.int_score))
+  const [wis, setWis] = useState(String(char.wis_score))
+  const [cha, setCha] = useState(String(char.cha_score))
+  const [saves, setSaves] = useState({
+    str: char.str_save_prof, dex: char.dex_save_prof, con: char.con_save_prof,
+    int: char.int_save_prof, wis: char.wis_save_prof, cha: char.cha_save_prof,
+  })
+  const [saving, setSaving] = useState(false)
+
+  const scoreInputs = [
+    { ab: 'STR', val: str, set: setStr }, { ab: 'DEX', val: dex, set: setDex },
+    { ab: 'CON', val: con, set: setCon }, { ab: 'INT', val: int_, set: setInt },
+    { ab: 'WIS', val: wis, set: setWis }, { ab: 'CHA', val: cha, set: setCha },
+  ]
+  const saveRows = [
+    { ab: 'STR', key: 'str' as const, label: ABILITY_LABELS['STR'] },
+    { ab: 'DEX', key: 'dex' as const, label: ABILITY_LABELS['DEX'] },
+    { ab: 'CON', key: 'con' as const, label: ABILITY_LABELS['CON'] },
+    { ab: 'INT', key: 'int' as const, label: ABILITY_LABELS['INT'] },
+    { ab: 'WIS', key: 'wis' as const, label: ABILITY_LABELS['WIS'] },
+    { ab: 'CHA', key: 'cha' as const, label: ABILITY_LABELS['CHA'] },
+  ]
+
+  async function save() {
+    setSaving(true)
+    await onSave({
+      level: Math.max(1, Math.min(20, parseInt(level) || 1)),
+      ac: Math.max(1, parseInt(ac) || 10),
+      speed: Math.max(0, parseInt(speed) || 30),
+      max_hp: Math.max(1, parseInt(maxHp) || 1),
+      str_score: Math.max(1, parseInt(str) || 10),
+      dex_score: Math.max(1, parseInt(dex) || 10),
+      con_score: Math.max(1, parseInt(con) || 10),
+      int_score: Math.max(1, parseInt(int_) || 10),
+      wis_score: Math.max(1, parseInt(wis) || 10),
+      cha_score: Math.max(1, parseInt(cha) || 10),
+      str_save_prof: saves.str, dex_save_prof: saves.dex, con_save_prof: saves.con,
+      int_save_prof: saves.int, wis_save_prof: saves.wis, cha_save_prof: saves.cha,
+    })
+    setSaving(false)
+  }
+
+  const IS = { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }
+
   return (
-    <div onClick={onClick} className="rounded-xl p-3 text-center"
-      style={{ background: 'var(--surface)', border: `1px solid ${onClick ? 'var(--gold)' : 'var(--border)'}`, cursor: onClick ? 'pointer' : 'default', opacity: 1 }}>
+    <Modal title="Edit Stats" onClose={onClose}>
+      <div className="flex flex-col gap-5">
+        {/* Core stats */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Core</p>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: 'Level', val: level, set: setLevel, min: 1, max: 20 },
+              { label: 'AC', val: ac, set: setAc, min: 1 },
+              { label: 'Speed', val: speed, set: setSpeed, min: 0, step: 5 },
+              { label: 'Max HP', val: maxHp, set: setMaxHp, min: 1 },
+            ].map(({ label, val, set, min, max, step }) => (
+              <div key={label}>
+                <label className="block text-xs font-medium mb-1 text-center" style={{ color: 'var(--text-muted)' }}>{label}</label>
+                <input type="number" min={min} max={max} step={step} value={val}
+                  onChange={e => set(e.target.value)}
+                  className="w-full px-2 py-2 rounded-xl outline-none text-center font-bold text-sm"
+                  style={IS} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Ability scores */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Ability Scores</p>
+          <div className="grid grid-cols-3 gap-2">
+            {scoreInputs.map(({ ab, val, set }) => (
+              <div key={ab}>
+                <label className="block text-xs font-bold mb-1 text-center" style={{ color: 'var(--gold)' }}>{ab}</label>
+                <input type="number" min={1} max={30} value={val}
+                  onChange={e => set(e.target.value)}
+                  className="w-full px-2 py-2 rounded-xl outline-none text-center font-bold text-sm"
+                  style={IS} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Saving throw proficiencies */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Saving Throw Proficiencies</p>
+          <div className="grid grid-cols-2 gap-1">
+            {saveRows.map(({ ab, key, label }) => {
+              const score = { str: char.str_score, dex: char.dex_score, con: char.con_score, int: char.int_score, wis: char.wis_score, cha: char.cha_score }[key]
+              const baseMod = abilityModifier(score ?? 10)
+              const total = baseMod + (saves[key] ? prof : 0)
+              return (
+                <button key={ab} onClick={() => setSaves(s => ({ ...s, [key]: !s[key] }))}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-left transition-all"
+                  style={{ background: saves[key] ? 'color-mix(in srgb, var(--gold) 15%, var(--surface-2))' : 'var(--surface-2)', border: `1px solid ${saves[key] ? 'var(--gold)' : 'var(--border)'}` }}>
+                  <div className="w-4 h-4 rounded-full shrink-0 transition-all"
+                    style={{ background: saves[key] ? 'var(--gold)' : 'transparent', border: `2px solid ${saves[key] ? 'var(--gold)' : 'var(--border)'}` }} />
+                  <span className="text-xs font-medium flex-1">{ab}</span>
+                  <span className="text-xs font-bold tabular-nums" style={{ color: saves[key] ? 'var(--gold)' : 'var(--text-muted)' }}>{formatModifier(total)}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <button onClick={save} disabled={saving}
+          className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+          style={{ background: 'var(--gold)', color: '#1c1917' }}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+function StatPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl p-3 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
       <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
       <p className="text-xl font-black" style={{ color: 'var(--gold)' }}>{value}</p>
     </div>
@@ -1159,35 +1260,19 @@ function DamageTypePicker({ value, onChange }: { value: string; onChange: (v: st
 
 // ─── Edit Character Modal ─────────────────────────────────────────────────────
 
-function EditCharModal({
-  char,
-  onClose,
-  onSave,
-}: {
-  char: Character
-  onClose: () => void
-  onSave: (updates: { level?: number; max_hp?: number; speed?: number; ac?: number; species?: string | null }) => Promise<void>
+function EditCharModal({ char, onClose, onSave }: {
+  char: Character; onClose: () => void
+  onSave: (updates: { species?: string | null }) => Promise<void>
 }) {
   const [species, setSpecies] = useState(char.species ?? '')
-  const [level, setLevel] = useState(String(char.level))
-  const [maxHp, setMaxHp] = useState(String(char.max_hp))
-  const [speed, setSpeed] = useState(String(char.speed))
-  const [ac, setAc] = useState(String(char.ac ?? 10))
   const [saving, setSaving] = useState(false)
+  const IS = { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }
 
   async function save() {
     setSaving(true)
-    await onSave({
-      species: species.trim() || null,
-      level: Math.max(1, Math.min(20, parseInt(level) || 1)),
-      max_hp: Math.max(1, parseInt(maxHp) || 1),
-      speed: Math.max(0, parseInt(speed) || 30),
-      ac: Math.max(1, parseInt(ac) || 10),
-    })
+    await onSave({ species: species.trim() || null })
     setSaving(false)
   }
-
-  const inputStyle = { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }
 
   return (
     <Modal title="Edit Character" onClose={onClose}>
@@ -1197,40 +1282,10 @@ function EditCharModal({
           <input type="text" list="ec-species-list" placeholder="Human, Elf…" value={species}
             onChange={e => setSpecies(e.target.value)}
             className="w-full px-4 py-3 rounded-xl outline-none"
-            style={inputStyle} />
+            style={IS} />
           <datalist id="ec-species-list">
             {SPECIES.map(s => <option key={s} value={s} />)}
           </datalist>
-        </div>
-        <div className="grid grid-cols-4 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Level</label>
-            <input type="number" min="1" max="20" value={level}
-              onChange={e => setLevel(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl outline-none text-center"
-              style={inputStyle} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Max HP</label>
-            <input type="number" min="1" value={maxHp}
-              onChange={e => setMaxHp(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl outline-none text-center"
-              style={inputStyle} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Speed (ft)</label>
-            <input type="number" min="0" step="5" value={speed}
-              onChange={e => setSpeed(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl outline-none text-center"
-              style={inputStyle} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>AC</label>
-            <input type="number" min="1" value={ac}
-              onChange={e => setAc(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl outline-none text-center"
-              style={inputStyle} />
-          </div>
         </div>
         <button onClick={save} disabled={saving}
           className="w-full py-3 rounded-xl font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
