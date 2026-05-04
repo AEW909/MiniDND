@@ -101,8 +101,13 @@ export default function CampaignPage() {
     setLoading(false)
   }
 
+  async function getPartyCharIds() {
+    const { data } = await supabase.from('characters').select('id').eq('party_id', partyId)
+    return (data ?? []).map(c => c.id)
+  }
+
   async function loadInventory() {
-    const ids = charData.map(cd => cd.char.id)
+    const ids = await getPartyCharIds()
     if (!ids.length) return
     const { data } = await supabase.from('character_inventory').select('*').in('character_id', ids)
     setCharData(prev => prev.map(cd => ({
@@ -112,7 +117,7 @@ export default function CampaignPage() {
   }
 
   async function loadSlots() {
-    const ids = charData.map(cd => cd.char.id)
+    const ids = await getPartyCharIds()
     if (!ids.length) return
     const { data } = await supabase.from('character_spell_slots').select('*').in('character_id', ids).order('slot_level')
     setCharData(prev => prev.map(cd => ({
@@ -122,7 +127,7 @@ export default function CampaignPage() {
   }
 
   async function loadSpecials() {
-    const ids = charData.map(cd => cd.char.id)
+    const ids = await getPartyCharIds()
     if (!ids.length) return
     const { data } = await supabase.from('character_other').select('*').in('character_id', ids).order('sort_order')
     setCharData(prev => prev.map(cd => ({
@@ -331,9 +336,14 @@ export default function CampaignPage() {
               INT: char.int_score, WIS: char.wis_score, CHA: char.cha_score,
             }
             const effectiveHp = char.current_hp + char.temp_hp
-            const hpPct = char.max_hp > 0 ? Math.max(0, Math.min(1, char.current_hp / char.max_hp)) : 0
-            const tempPct = char.max_hp > 0 ? Math.min(char.temp_hp / char.max_hp, 1 - hpPct) : 0
             const hasTemp = char.temp_hp > 0
+            const rawHpPct = char.max_hp > 0 ? Math.max(0, Math.min(1, char.current_hp / char.max_hp)) : 0
+            const MIN_TEMP = 0.05
+            const visibleTempPct = hasTemp
+              ? Math.max(MIN_TEMP, Math.min(char.temp_hp / char.max_hp, 1 - rawHpPct))
+              : 0
+            const hpPct = hasTemp ? Math.min(rawHpPct, 1 - MIN_TEMP) : rawHpPct
+            const tempPct = visibleTempPct
             const gradientColor = (() => {
               if (hpPct >= 0.5) {
                 const t = (hpPct - 0.5) / 0.5
@@ -389,11 +399,11 @@ export default function CampaignPage() {
                         <span style={{ color: 'var(--text-muted)' }}>/ {char.max_hp}</span>
                       </div>
                       <div className="h-3 rounded-full overflow-hidden flex" style={{ background: 'var(--surface-2)' }}>
-                        <div className="h-full transition-all duration-300"
+                        <div className="h-full transition-all duration-300 shrink-0"
                           style={{ background: gradientColor, width: `${hpPct * 100}%` }} />
                         {hasTemp && (
-                          <div className="h-full transition-all duration-300"
-                            style={{ background: '#3b82f6', width: `${tempPct * 100}%` }} />
+                          <div className="h-full transition-all duration-300 shrink-0"
+                            style={{ background: '#3b82f6', width: `${Math.min(char.temp_hp / char.max_hp, 1 - hpPct) * 100}%`, minWidth: hasTemp ? '6px' : 0 }} />
                         )}
                       </div>
                     </div>
