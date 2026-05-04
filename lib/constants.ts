@@ -129,6 +129,10 @@ export const CLASSES: Record<string, string[]> = {
 
 export const CLASS_NAMES = Object.keys(CLASSES)
 
+export const ABILITY_EMOJI: Record<string, string> = {
+  STR: '💪', DEX: '🎯', CON: '🛡️', INT: '🧠', WIS: '👁️', CHA: '✨',
+}
+
 export const DAMAGE_TYPES = [
   { key: 'slashing',    label: 'Slashing',    emoji: '⚔️',  color: '#a8836a' },
   { key: 'piercing',    label: 'Piercing',    emoji: '🗡️',  color: '#9aa3b0' },

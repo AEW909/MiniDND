@@ -6,7 +6,7 @@ import { applyTheme, resetToGlobalTheme } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { Character, CharacterSkill, CharacterAttack, CharacterSpell, CharacterSpellSlot, CharacterInventory, CharacterOther } from '@/lib/types'
 import {
-  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier, getPartyIcon,
+  getAvatarEmoji, getDamageEmoji, getDamageColor, getDamageLabel, abilityModifier, proficiencyBonus, formatModifier, getPartyIcon, ABILITY_EMOJI,
 } from '@/lib/constants'
 import { slotLevelLabel } from '@/lib/spell-slots'
 
@@ -486,7 +486,8 @@ export default function CampaignPage() {
                               ].filter(t => t.skills.length > 0)
                               return (
                                 <div key={ab}>
-                                  <div className="flex items-baseline gap-1.5 mb-1">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <span className="text-base leading-none">{ABILITY_EMOJI[ab]}</span>
                                     <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>{ab}</span>
                                     <span className="text-xs font-semibold">{scores[ab]}</span>
                                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({formatModifier(abMod)})</span>
