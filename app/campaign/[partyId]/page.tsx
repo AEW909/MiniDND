@@ -1006,10 +1006,10 @@ function SortableInitRow({ entry, isCurrent, onRemove }: {
     : entry.type === 'pc'
     ? { bg: 'var(--surface)', border: 'var(--border)', nameColor: 'var(--text)' }
     : entry.side === 'foe'
-    ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#ef4444' }
+    ? { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)', nameColor: '#dc2626' }
     : entry.side === 'friend'
-    ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#4ade80' }
-    : { bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.4)', nameColor: '#d97706' }
+    ? { bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)', nameColor: '#16a34a' }
+    : { bg: 'rgba(234,179,8,0.1)', border: 'rgba(234,179,8,0.4)', nameColor: '#b45309' }
 
   const sideEmoji = entry.type === 'npc'
     ? entry.side === 'foe' ? '💀' : entry.side === 'friend' ? '🤝' : '❓'
@@ -1110,13 +1110,13 @@ function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }:
         </div>
 
         <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <button onClick={onAddNpc}
-            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-            <Plus size={13} /> Add NPC
-          </button>
           <button onClick={handleNext}
             style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--gold)', color: '#1c1917', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
             Next ▶
+          </button>
+          <button onClick={onAddNpc}
+            style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Plus size={13} /> Add NPC
           </button>
           <button onClick={onClear}
             style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px' }}>
