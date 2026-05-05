@@ -159,10 +159,30 @@ export default function CampaignPage() {
   }
 
   async function applyHpChange(char: Character, newHp: number, newTemp: number) {
+    const clearSaves = char.current_hp === 0 && newHp > 0
+    const dbUpdate: Record<string, unknown> = { current_hp: newHp, temp_hp: newTemp }
+    if (clearSaves) dbUpdate.death_saves = { successes: 0, failures: 0 }
     setCharData(prev => prev.map(cd =>
-      cd.char.id === char.id ? { ...cd, char: { ...cd.char, current_hp: newHp, temp_hp: newTemp } } : cd
+      cd.char.id === char.id
+        ? { ...cd, char: { ...cd.char, current_hp: newHp, temp_hp: newTemp, ...(clearSaves ? { death_saves: { successes: 0, failures: 0 } } : {}) } }
+        : cd
     ))
-    await supabase.from('characters').update({ current_hp: newHp, temp_hp: newTemp }).eq('id', char.id)
+    await supabase.from('characters').update(dbUpdate).eq('id', char.id)
+  }
+
+  async function tapDeathSave(char: Character, type: 'success' | 'failure', index: number) {
+    const ds = char.death_saves ?? { successes: 0, failures: 0 }
+    let { successes, failures } = ds
+    if (type === 'success') {
+      successes = index < successes ? index : Math.min(3, index + 1)
+    } else {
+      failures = index < failures ? index : Math.min(3, index + 1)
+    }
+    const newDs = { successes, failures }
+    setCharData(prev => prev.map(cd =>
+      cd.char.id === char.id ? { ...cd, char: { ...cd.char, death_saves: newDs } } : cd
+    ))
+    await supabase.from('characters').update({ death_saves: newDs }).eq('id', char.id)
   }
 
   function damageChar(char: Character, damage: number): [number, number] {
@@ -224,7 +244,7 @@ export default function CampaignPage() {
       ))
     }
     if (opts.hp) {
-      awaitables.push(supabase.from('characters').update({ current_hp: cd.char.max_hp, temp_hp: 0 }).eq('id', charId))
+      awaitables.push(supabase.from('characters').update({ current_hp: cd.char.max_hp, temp_hp: 0, death_saves: { successes: 0, failures: 0 } }).eq('id', charId))
     }
 
     await Promise.all(awaitables)
@@ -233,7 +253,7 @@ export default function CampaignPage() {
       if (c.char.id !== charId) return c
       return {
         ...c,
-        char: opts.hp ? { ...c.char, current_hp: c.char.max_hp, temp_hp: 0 } : c.char,
+        char: opts.hp ? { ...c.char, current_hp: c.char.max_hp, temp_hp: 0, death_saves: { successes: 0, failures: 0 } } : c.char,
         slots: opts.spellSlots ? c.slots.map(s => ({ ...s, used_slots: 0 })) : c.slots,
         specials: opts.specials ? c.specials.map(s => s.has_slots ? { ...s, used_slots: 0 } : s) : c.specials,
         restOpen: false,
@@ -593,6 +613,50 @@ export default function CampaignPage() {
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Temp HP</span>
                     )}
                   </div>
+
+                  {/* Death saves — shown when HP is 0 */}
+                  {char.current_hp === 0 && (() => {
+                    const ds = char.death_saves ?? { successes: 0, failures: 0 }
+                    const isStable = ds.successes >= 3
+                    const isDead = ds.failures >= 3
+                    return (
+                      <div className="mb-2">
+                        {isDead || isStable ? (
+                          <div className="text-center py-1.5 rounded-lg text-xs font-bold"
+                            style={isDead
+                              ? { background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444' }
+                              : { background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', color: '#22c55e' }}>
+                            {isDead ? '💀 Dead' : '💤 Stable'}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold" style={{ color: '#ef4444' }}>✗</span>
+                              {[0,1,2].map(i => (
+                                <button key={i} onClick={() => tapDeathSave(char, 'failure', i)}
+                                  className="w-5 h-5 rounded-full transition-all"
+                                  style={{
+                                    background: i < ds.failures ? '#ef4444' : 'var(--surface-2)',
+                                    border: `1.5px solid ${i < ds.failures ? '#ef4444' : 'var(--border)'}`,
+                                  }} />
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {[0,1,2].map(i => (
+                                <button key={i} onClick={() => tapDeathSave(char, 'success', i)}
+                                  className="w-5 h-5 rounded-full transition-all"
+                                  style={{
+                                    background: i < ds.successes ? '#22c55e' : 'var(--surface-2)',
+                                    border: `1.5px solid ${i < ds.successes ? '#22c55e' : 'var(--border)'}`,
+                                  }} />
+                              ))}
+                              <span className="text-xs font-bold" style={{ color: '#22c55e' }}>✓</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   <div className="flex gap-1.5 text-xs text-center mb-1.5">
                     <div className="flex-1 py-1 rounded-lg" style={{ background: 'var(--surface-2)' }}>

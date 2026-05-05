@@ -39,6 +39,7 @@ export interface Character {
   wis_save_prof: boolean
   cha_save_prof: boolean
   conditions: string[]
+  death_saves: { successes: number; failures: number } | null
   sort_order: number
   created_at: string
 }

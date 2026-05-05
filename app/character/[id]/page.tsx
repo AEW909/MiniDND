@@ -537,6 +537,55 @@ function OverviewTab({ char, prof, scores, skills, onSave }: {
         </div>
       )}
 
+      {/* Death saves — read-only, shown when HP is 0 */}
+      {char.current_hp === 0 && (() => {
+        const ds = char.death_saves ?? { successes: 0, failures: 0 }
+        const isStable = ds.successes >= 3
+        const isDead = ds.failures >= 3
+        return (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <h2 className="text-sm font-bold mb-3 uppercase tracking-wider" style={{ color: isDead ? '#ef4444' : '#f59e0b' }}>
+              💀 Death Saves
+            </h2>
+            {isDead || isStable ? (
+              <div className="text-center py-2 rounded-xl text-sm font-bold"
+                style={isDead
+                  ? { background: 'rgba(239,68,68,0.15)', color: '#ef4444' }
+                  : { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}>
+                {isDead ? '💀 Dead' : '💤 Stable'}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold w-14" style={{ color: '#ef4444' }}>✗ Fails</span>
+                  <div className="flex gap-1.5">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="w-6 h-6 rounded-full"
+                        style={{
+                          background: i < ds.failures ? '#ef4444' : 'var(--surface-2)',
+                          border: `1.5px solid ${i < ds.failures ? '#ef4444' : 'var(--border)'}`,
+                        }} />
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold w-14" style={{ color: '#22c55e' }}>✓ Saves</span>
+                  <div className="flex gap-1.5">
+                    {[0,1,2].map(i => (
+                      <div key={i} className="w-6 h-6 rounded-full"
+                        style={{
+                          background: i < ds.successes ? '#22c55e' : 'var(--surface-2)',
+                          border: `1.5px solid ${i < ds.successes ? '#22c55e' : 'var(--border)'}`,
+                        }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {showStatsEdit && (
         <StatsEditModal char={char} prof={prof}
           onClose={() => setShowStatsEdit(false)}
