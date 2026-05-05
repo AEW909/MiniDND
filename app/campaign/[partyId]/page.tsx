@@ -455,8 +455,8 @@ export default function CampaignPage() {
         />
       )}
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="flex h-full" style={{ minWidth: `${charData.length * 300}px` }}>
+      <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory md:snap-none">
+        <div className="flex h-full">
           {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen, skillsOpen, conditionsOpen }) => {
             const prof = proficiencyBonus(char.level)
             const scores: Record<string, number> = {
@@ -491,8 +491,8 @@ export default function CampaignPage() {
             const numberColor = hasTemp ? '#60a5fa' : gradientColor
 
             return (
-              <div key={char.id} className="flex flex-col border-r overflow-y-auto"
-                style={{ width: '300px', minWidth: '300px', borderColor: 'var(--border)' }}>
+              <div key={char.id} className="flex flex-col border-r overflow-y-auto snap-start w-[100dvw] shrink-0 md:w-[300px] md:min-w-[300px]"
+                style={{ borderColor: 'var(--border)' }}>
 
                 {/* Character header */}
                 <div className="sticky top-0 z-10 p-4" style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
