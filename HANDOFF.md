@@ -5,9 +5,15 @@ D&D 5e character tracker built with Next.js 15 (App Router) + Supabase. Built fo
 
 **Supabase project:** ejjfumclyftxdpblkgfy (MiniDND, eu-west-1)
 **GitHub:** https://github.com/AEW909/MiniDND.git
-**Current commit:** ce2e72c
+**Current commit:** 3837e20
 
 ## What was just completed
+
+### Mobile swipe-snap (commit 3837e20)
+- `snap-x snap-mandatory` on the scroll container, disabled at `md:` breakpoint
+- Each PC card: `w-[100dvw] snap-start shrink-0` on mobile, `md:w-[300px] md:min-w-[300px]` on desktop
+- Initiative panel (fixed overlay), conditions picker, death saves, rest panel — all contained within the card, unaffected
+- Removed the explicit `minWidth` calculation from the inner flex container
 
 ### Death saves tracker (commit ce2e72c)
 - `death_saves JSONB NOT NULL DEFAULT '{"successes":0,"failures":0}'` on `characters` table
@@ -37,7 +43,6 @@ ALTER TABLE characters
 - `733b678` — Conditions tracker (per-character, realtime, campaign card + overview badges)
 
 ## Potential next features (no priority order)
-- **Snap scroll on mobile** — feasibility discussed but not built. Campaign view currently free-scrolls horizontally; could use CSS scroll-snap so each PC card snaps to full screen width on mobile. Desktop would stay as-is (multi-column). Gotcha: initiative panel is a fixed overlay so no conflict there. Conditions picker and death save UI are within the card, so no issue. Straightforward CSS change.
 - **Concentration tracking** — tag a spell as requiring concentration, show indicator on card, auto-clear on damage
 - **Short rest** — separate from long rest; hit dice recovery (enter number of dice rolled)
 - **Dice tray** — a single floating 🎲 FAB with d4–d20, clean standalone feature if physical dice aren't at hand
