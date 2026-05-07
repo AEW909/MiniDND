@@ -53,6 +53,8 @@ export default function CharacterPage() {
   const [loading, setLoading] = useState(true)
 
   // Edit states
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
   const [editingHp, setEditingHp] = useState(false)
   const [hpInput, setHpInput] = useState('')
   const [editingMaxHp, setEditingMaxHp] = useState(false)
@@ -121,6 +123,7 @@ export default function CharacterPage() {
   }
 
   async function updateChar(updates: {
+    name?: string
     level?: number; max_hp?: number; speed?: number; ac?: number; species?: string | null
     str_score?: number; dex_score?: number; con_score?: number
     int_score?: number; wis_score?: number; cha_score?: number
@@ -130,6 +133,28 @@ export default function CharacterPage() {
     if (!char) return
     await supabase.from('characters').update(updates).eq('id', id)
     setChar(prev => prev ? { ...prev, ...updates } : prev)
+  }
+
+  async function deleteCharacter() {
+    if (!char) return
+    const { data: enc } = await supabase
+      .from('encounters').select('*').eq('party_id', char.party_id).single()
+    if (enc?.is_active) {
+      const entries = (enc.entries ?? []) as Array<{ id: string; charId?: string }>
+      const removedIdx = entries.findIndex(e => e.charId === id)
+      if (removedIdx !== -1) {
+        const filtered = entries.filter((_, i) => i !== removedIdx)
+        const removedEntryId = entries[removedIdx].id
+        const newCurrentId = enc.current_id === removedEntryId
+          ? (filtered[removedIdx % Math.max(filtered.length, 1)]?.id ?? null)
+          : enc.current_id
+        await supabase.from('encounters')
+          .update({ entries: filtered, current_id: newCurrentId })
+          .eq('party_id', char.party_id)
+      }
+    }
+    await supabase.from('characters').delete().eq('id', id)
+    router.push(`/party/${char.party_id}`)
   }
 
   async function toggleSkill(skill: CharacterSkill) {
@@ -272,7 +297,29 @@ export default function CharacterPage() {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h1 className="font-display font-bold text-lg leading-tight truncate">{char.name}</h1>
+            {editingName ? (
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                onBlur={() => {
+                  const t = nameInput.trim()
+                  if (t && t !== char.name) updateChar({ name: t })
+                  setEditingName(false)
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') e.currentTarget.blur()
+                  else if (e.key === 'Escape') setEditingName(false)
+                }}
+                className="font-display font-bold text-lg leading-tight outline-none bg-transparent border-b flex-1 min-w-0"
+                style={{ color: 'var(--text)', borderColor: 'var(--gold)' }}
+              />
+            ) : (
+              <h1
+                className="font-display font-bold text-lg leading-tight truncate cursor-text"
+                onClick={() => { setEditingName(true); setNameInput(char.name) }}
+              >{char.name}</h1>
+            )}
             <button onClick={() => setShowEditChar(true)} className="p-1 rounded-lg shrink-0" style={{ color: 'var(--text-muted)' }}>
               <Pencil size={14} />
             </button>
@@ -1359,7 +1406,7 @@ function EditCharModal({ char, onClose, onSave }: {
       <div className="flex flex-col gap-4">
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--text-muted)' }}>Species</label>
-          <input type="text" list="ec-species-list" placeholder="Human, Elf…" value={species}
+          <input autoFocus type="text" list="ec-species-list" placeholder="Human, Elf…" value={species}
             onChange={e => setSpecies(e.target.value)}
             className="w-full px-4 py-3 rounded-xl outline-none"
             style={IS} />
