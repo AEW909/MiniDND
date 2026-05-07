@@ -5,9 +5,21 @@ D&D 5e character tracker built with Next.js 15 (App Router) + Supabase. Built fo
 
 **Supabase project:** ejjfumclyftxdpblkgfy (MiniDND, eu-west-1)
 **GitHub:** https://github.com/AEW909/MiniDND.git
-**Current commit:** 3837e20
+**Current commit:** 2bc3a19
 
 ## What was just completed
+
+### Initiative persistence + UX rework (commits 7677a6d, 2bc3a19)
+- New `encounters` table (`party_id` PK, `is_active`, `round`, `current_id`, `entries` JSONB)
+  - **Run migration:** `supabase/migrations/001_encounters.sql` in Supabase SQL editor
+- All panel actions (reorder, add, remove, next turn) upsert full state to DB
+- Realtime subscription on `encounters`: any device change syncs immediately
+- On campaign mount: if `is_active`, panel auto-reopens with correct turn/round/NPC state
+- `currentId` and `round` lifted from `InitPanel` local state to parent (controlled)
+- `+` button replaces "Add NPC" button: shows inline NPC form, or a picker menu when
+  party members are missing from the list (tap to restore them)
+- "End" button (was "Clear") shows inline confirm before setting `is_active=false`
+- `AddNpcModal` deleted — form lives inside `InitPanel`'s picker
 
 ### Mobile swipe-snap (commit 3837e20)
 - `snap-x snap-mandatory` on the scroll container, disabled at `md:` breakpoint
@@ -46,6 +58,7 @@ ALTER TABLE characters
 - **Concentration tracking** — tag a spell as requiring concentration, show indicator on card, auto-clear on damage
 - **Short rest** — separate from long rest; hit dice recovery (enter number of dice rolled)
 - **Dice tray** — a single floating 🎲 FAB with d4–d20, clean standalone feature if physical dice aren't at hand
+- **Sort by roll in initiative** — currently manual entry + drag; could add a number field per combatant and auto-sort button
 
 ## Key files
 - `app/campaign/[partyId]/page.tsx` — live campaign view (main place to work)
