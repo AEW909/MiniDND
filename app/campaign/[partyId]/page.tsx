@@ -57,6 +57,8 @@ export default function CampaignPage() {
   const [showInit, setShowInit] = useState(false)
   const [initEntries, setInitEntries] = useState<InitEntry[]>([])
   const [showAddNpc, setShowAddNpc] = useState(false)
+  const [currentId, setCurrentId] = useState<string | null>(null)
+  const [round, setRound] = useState(1)
 
   useEffect(() => {
     load()
@@ -75,6 +77,17 @@ export default function CampaignPage() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'character_other' }, () => {
         loadSpecials()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'encounters', filter: `party_id=eq.${partyId}` }, ({ eventType, new: row }) => {
+        if (eventType === 'DELETE') {
+          setInitEntries([]); setCurrentId(null); setRound(1); setShowInit(false)
+          return
+        }
+        const enc = row as { entries: InitEntry[]; current_id: string | null; round: number; is_active: boolean }
+        setInitEntries(enc.entries ?? [])
+        setCurrentId(enc.current_id ?? null)
+        setRound(enc.round ?? 1)
+        setShowInit(!!enc.is_active)
       })
       .subscribe()
 
@@ -120,6 +133,15 @@ export default function CampaignPage() {
       skillsOpen: true,
       conditionsOpen: false,
     })))
+
+    const { data: enc } = await supabase.from('encounters').select('*').eq('party_id', partyId).single()
+    if (enc?.is_active) {
+      setInitEntries(enc.entries ?? [])
+      setCurrentId(enc.current_id ?? null)
+      setRound(enc.round ?? 1)
+      setShowInit(true)
+    }
+
     setLoading(false)
   }
 
@@ -373,34 +395,68 @@ export default function CampaignPage() {
     }))
   }
 
-  function openInit() {
-    setInitEntries(prev => {
-      if (prev.length === 0) return buildPcEntries()
+  async function saveEncounter(state: { entries: InitEntry[]; current_id: string | null; round: number; is_active: boolean }) {
+    await supabase.from('encounters').upsert({ party_id: partyId, ...state }, { onConflict: 'party_id' })
+  }
+
+  async function openInit() {
+    if (showInit) { setShowInit(false); return }
+    if (initEntries.length === 0) {
+      const pcs = buildPcEntries()
+      setInitEntries(pcs); setCurrentId(null); setRound(1)
+      await saveEncounter({ entries: pcs, current_id: null, round: 1, is_active: true })
+    } else {
       const newPcs = charData
-        .filter(cd => !prev.some(e => e.charId === cd.char.id))
-        .map(cd => ({
-          id: cd.char.id,
-          name: cd.char.name,
-          type: 'pc' as const,
-          side: 'neutral' as const,
-          desc: `${cd.char.class} · Lv ${cd.char.level}`,
-          charId: cd.char.id,
-        }))
-      return [...prev, ...newPcs]
-    })
+        .filter(cd => !initEntries.some(e => e.charId === cd.char.id))
+        .map(cd => ({ id: cd.char.id, name: cd.char.name, type: 'pc' as const, side: 'neutral' as const, desc: `${cd.char.class} · Lv ${cd.char.level}`, charId: cd.char.id }))
+      if (newPcs.length > 0) {
+        const updated = [...initEntries, ...newPcs]
+        setInitEntries(updated)
+        await saveEncounter({ entries: updated, current_id: currentId, round, is_active: true })
+      }
+    }
     setShowInit(true)
   }
 
-  function addNpc(entry: Omit<InitEntry, 'id'>) {
-    setInitEntries(prev => [...prev, { ...entry, id: `npc-${Date.now()}` }])
+  async function handleAddNpc(entry: Omit<InitEntry, 'id'>) {
+    const newEntry = { ...entry, id: `npc-${Date.now()}` }
+    const newEntries = [...initEntries, newEntry]
+    setInitEntries(newEntries)
+    await saveEncounter({ entries: newEntries, current_id: currentId, round, is_active: true })
   }
 
-  function removeInitEntry(id: string) {
-    setInitEntries(prev => prev.filter(e => e.id !== id))
+  async function handleRemoveEntry(id: string) {
+    const newEntries = initEntries.filter(e => e.id !== id)
+    let newCurrentId = currentId
+    if (currentId === id) {
+      const idx = initEntries.findIndex(e => e.id === id)
+      newCurrentId = newEntries[idx]?.id ?? newEntries[idx - 1]?.id ?? null
+    }
+    setInitEntries(newEntries); setCurrentId(newCurrentId)
+    await saveEncounter({ entries: newEntries, current_id: newCurrentId, round, is_active: true })
   }
 
-  function clearInit() {
-    setInitEntries(buildPcEntries())
+  async function handleNext() {
+    if (initEntries.length === 0) return
+    let newCurrentId: string
+    let newRound = round
+    if (currentId === null) {
+      newCurrentId = initEntries[0].id
+    } else {
+      const idx = initEntries.findIndex(e => e.id === currentId)
+      if (idx === -1 || idx >= initEntries.length - 1) {
+        newCurrentId = initEntries[0].id; newRound = round + 1
+      } else {
+        newCurrentId = initEntries[idx + 1].id
+      }
+    }
+    setCurrentId(newCurrentId); setRound(newRound)
+    await saveEncounter({ entries: initEntries, current_id: newCurrentId, round: newRound, is_active: true })
+  }
+
+  async function handleEndEncounter() {
+    setInitEntries([]); setCurrentId(null); setRound(1); setShowInit(false)
+    await saveEncounter({ entries: [], current_id: null, round: 1, is_active: false })
   }
 
   if (loading) return (
@@ -441,16 +497,20 @@ export default function CampaignPage() {
       {showInit && (
         <InitPanel
           entries={initEntries}
+          currentId={currentId}
+          round={round}
+          partyChars={charData.map(cd => ({ id: cd.char.id, name: cd.char.name, className: cd.char.class, level: cd.char.level }))}
           onClose={() => setShowInit(false)}
-          onReorder={setInitEntries}
+          onReorder={async (e) => { setInitEntries(e); await saveEncounter({ entries: e, current_id: currentId, round, is_active: true }) }}
           onAddNpc={() => setShowAddNpc(true)}
-          onRemove={removeInitEntry}
-          onClear={clearInit}
+          onRemove={handleRemoveEntry}
+          onNext={handleNext}
+          onEnd={handleEndEncounter}
         />
       )}
       {showAddNpc && (
         <AddNpcModal
-          onAdd={entry => { addNpc(entry); setShowAddNpc(false) }}
+          onAdd={entry => { handleAddNpc(entry); setShowAddNpc(false) }}
           onClose={() => setShowAddNpc(false)}
         />
       )}
@@ -1050,7 +1110,7 @@ function Section({ label, isOpen, onToggle, children }: {
     <div style={{ borderBottom: '1px solid var(--border)' }}>
       <button onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-2.5 font-semibold text-sm"
-        style={{ background: 'var(--surface)' }}>
+        style={{ background: 'color-mix(in srgb, var(--surface) 75%, transparent)' }}>
         {label}
         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
@@ -1102,25 +1162,22 @@ function SortableInitRow({ entry, isCurrent, onRemove }: {
   )
 }
 
-function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }: {
+function InitPanel({ entries, currentId, round, partyChars: _partyChars, onClose, onReorder, onAddNpc, onRemove, onNext, onEnd }: {
   entries: InitEntry[]
+  currentId: string | null
+  round: number
+  partyChars: Array<{ id: string; name: string; className: string; level: number }>
   onClose: () => void
   onReorder: (entries: InitEntry[]) => void
   onAddNpc: () => void
   onRemove: (id: string) => void
-  onClear: () => void
+  onNext: () => void
+  onEnd: () => void
 }) {
-  const [currentId, setCurrentId] = useState<string | null>(null)
-  const [round, setRound] = useState(1)
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 300, tolerance: 20 } }),
   )
-
-  useEffect(() => {
-    if (currentId && !entries.find(e => e.id === currentId)) setCurrentId(null)
-  }, [entries, currentId])
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
@@ -1128,18 +1185,6 @@ function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }:
       const oldIndex = entries.findIndex(e => e.id === active.id)
       const newIndex = entries.findIndex(e => e.id === over.id)
       onReorder(arrayMove(entries, oldIndex, newIndex))
-    }
-  }
-
-  function handleNext() {
-    if (entries.length === 0) return
-    if (currentId === null) { setCurrentId(entries[0].id); return }
-    const idx = entries.findIndex(e => e.id === currentId)
-    if (idx === -1 || idx >= entries.length - 1) {
-      setCurrentId(entries[0].id)
-      setRound(r => r + 1)
-    } else {
-      setCurrentId(entries[idx + 1].id)
     }
   }
 
@@ -1174,7 +1219,7 @@ function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }:
         </div>
 
         <div style={{ padding: '12px', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', flexShrink: 0 }}>
-          <button onClick={handleNext}
+          <button onClick={onNext}
             style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--gold)', color: '#1c1917', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
             Next ▶
           </button>
@@ -1182,9 +1227,9 @@ function InitPanel({ entries, onClose, onReorder, onAddNpc, onRemove, onClear }:
             style={{ flex: 1, padding: '8px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
             <Plus size={13} /> Add NPC
           </button>
-          <button onClick={onClear}
+          <button onClick={onEnd}
             style={{ padding: '8px 10px', borderRadius: '10px', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text-muted)', fontSize: '12px' }}>
-            Clear
+            End
           </button>
         </div>
       </div>
