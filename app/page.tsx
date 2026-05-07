@@ -112,9 +112,9 @@ export default function PartiesPage() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowThemePicker(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-opacity hover:opacity-80"
+            className="p-2.5 rounded-xl transition-opacity hover:opacity-80"
             style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
-            <Palette size={16} /> Theme
+            <Palette size={18} />
           </button>
           <button onClick={() => { setShowCreate(true); setCreateError(''); setNewPartyTheme(null); setNewBgUrl('') }}
             className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
