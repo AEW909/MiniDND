@@ -508,7 +508,7 @@ export default function CampaignPage() {
         />
       )}
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden snap-x snap-mandatory md:snap-none">
+      <div className="flex-1 overflow-x-auto [overflow-y:clip] snap-x snap-mandatory md:snap-none">
         <div className="flex h-full">
           {charData.map(({ char, skills, attacks, spells, slots, inventory, specials, expanded, restOpen, skillsOpen, conditionsOpen }) => {
             const prof = proficiencyBonus(char.level)
