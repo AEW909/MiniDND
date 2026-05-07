@@ -5,9 +5,17 @@ D&D 5e character tracker built with Next.js 15 (App Router) + Supabase. Built fo
 
 **Supabase project:** ejjfumclyftxdpblkgfy (MiniDND, eu-west-1)
 **GitHub:** https://github.com/AEW909/MiniDND.git
-**Current commit:** 2bc3a19
+**Current commit:** 94e07ef
 
 ## What was just completed
+
+### Character name editing + delete (commits 62d94ed, 94e07ef)
+- **Inline name edit**: click the character name in the header to edit in-place; saves on blur or Enter, cancels on Escape
+- **Delete character**: pencil → Edit Character modal → "Delete Character" button (danger section at bottom)
+  - Requires explicit confirmation: "Delete {name}? This can't be undone."
+  - Before deleting, removes the character from any active `encounters.entries` JSONB; if it was their turn, advances `current_id` to the next combatant
+  - ON DELETE CASCADE handles all child table cleanup (character_skills, character_attacks, character_spells, character_spell_slots, character_other, character_inventory)
+  - Navigates to `/party/{party_id}` after deletion
 
 ### Initiative persistence + UX rework (commits 7677a6d, 2bc3a19)
 - New `encounters` table (`party_id` PK, `is_active`, `round`, `current_id`, `entries` JSONB)
