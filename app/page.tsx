@@ -117,9 +117,9 @@ export default function PartiesPage() {
             <Palette size={18} />
           </button>
           <button onClick={() => { setShowCreate(true); setCreateError(''); setNewPartyTheme(null); setNewBgUrl('') }}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:scale-95"
+            className="p-2.5 rounded-xl transition-opacity hover:opacity-80 active:scale-95"
             style={{ background: 'var(--gold)', color: '#1c1917' }}>
-            <Plus size={18} /> New Party
+            <Plus size={18} />
           </button>
         </div>
       </header>
