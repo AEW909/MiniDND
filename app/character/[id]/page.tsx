@@ -479,7 +479,7 @@ export default function CharacterPage() {
         <EditCharModal char={char} onClose={() => setShowEditChar(false)} onSave={async (updates) => {
           await updateChar(updates)
           setShowEditChar(false)
-        }} />
+        }} onDelete={deleteCharacter} />
       )}
     </div>
   )
@@ -1387,12 +1387,15 @@ function DamageTypePicker({ value, onChange }: { value: string; onChange: (v: st
 
 // ─── Edit Character Modal ─────────────────────────────────────────────────────
 
-function EditCharModal({ char, onClose, onSave }: {
+function EditCharModal({ char, onClose, onSave, onDelete }: {
   char: Character; onClose: () => void
   onSave: (updates: { species?: string | null }) => Promise<void>
+  onDelete: () => Promise<void>
 }) {
   const [species, setSpecies] = useState(char.species ?? '')
   const [saving, setSaving] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const IS = { background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }
 
   async function save() {
@@ -1419,6 +1422,35 @@ function EditCharModal({ char, onClose, onSave }: {
           style={{ background: 'var(--gold)', color: '#1c1917' }}>
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
+
+        <div className="pt-1" style={{ borderTop: '1px solid var(--border)' }}>
+          {!showDeleteConfirm ? (
+            <button onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-2.5 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80"
+              style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+              Delete Character
+            </button>
+          ) : (
+            <div className="flex flex-col gap-3 p-3 rounded-xl"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <p className="text-sm text-center font-medium" style={{ color: 'var(--text)' }}>
+                Delete <strong>{char.name}</strong>? This can't be undone.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2 rounded-xl font-semibold text-sm"
+                  style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--text)' }}>
+                  Cancel
+                </button>
+                <button onClick={() => { setDeleting(true); onDelete() }} disabled={deleting}
+                  className="flex-1 py-2 rounded-xl font-bold text-sm disabled:opacity-50"
+                  style={{ background: '#ef4444', color: '#fff' }}>
+                  {deleting ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </Modal>
   )
