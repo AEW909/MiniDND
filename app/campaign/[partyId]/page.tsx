@@ -731,7 +731,7 @@ export default function CampaignPage() {
                 </div>
 
                 {/* Expandable sections */}
-                <div className="flex-1 flex flex-col">
+                <div className="flex flex-col">
                   {/* Skills & Abilities */}
                   <SectionPanel label="Skills & Abilities 🎯" isOpen={expanded === 'skills'} onToggle={() => toggleSection(char.id, 'skills')}>
                     {!simplifiedSkills && (
