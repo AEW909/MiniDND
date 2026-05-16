@@ -47,21 +47,21 @@ export default function CampaignPage() {
   useEffect(() => {
     load()
     const channel = supabase.channel(`campaign-${partyId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'characters' }, ({ new: row }) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'dnd', table: 'characters' }, ({ new: row }) => {
         setCharData(prev => prev.map(cd =>
           cd.char.id === row.id ? { ...cd, char: { ...cd.char, ...(row as Character) } } : cd
         ))
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'character_inventory' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'dnd', table: 'character_inventory' }, () => {
         loadInventory()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'character_spell_slots' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'dnd', table: 'character_spell_slots' }, () => {
         loadSlots()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'character_other' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'dnd', table: 'character_other' }, () => {
         loadSpecials()
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'encounters', filter: `party_id=eq.${partyId}` }, ({ eventType, new: row }) => {
+      .on('postgres_changes', { event: '*', schema: 'dnd', table: 'encounters', filter: `party_id=eq.${partyId}` }, ({ eventType, new: row }) => {
         if (eventType === 'DELETE') {
           setInitEntries([]); setCurrentId(null); setRound(1); setShowInit(false)
           return
